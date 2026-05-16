@@ -158,7 +158,7 @@ const PaymentsPage = () => {
               </div>
               <div className="input-group">
                 <label>Payment Date</label>
-                <input type="date" className="input-field" required value={paymentModal.paidAt} onChange={e => setPaymentModal({...paymentModal, paidAt: e.target.value})} />
+                <input type="date" className="input-field" required max={new Date().toISOString().split('T')[0]} value={paymentModal.paidAt} onChange={e => setPaymentModal({...paymentModal, paidAt: e.target.value})} />
               </div>
 
               <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
