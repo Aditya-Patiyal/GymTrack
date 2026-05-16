@@ -1,0 +1,293 @@
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { FiSearch, FiPlus, FiTrash2 } from 'react-icons/fi';
+import api from '../services/api';
+import toast from 'react-hot-toast';
+
+const MembersPage = () => {
+  const [members, setMembers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filter, setFilter] = useState('all');
+  const navigate = useNavigate();
+
+  const fetchMembers = async () => {
+    setLoading(true);
+    try {
+      const { data } = await api.get(`/members?search=${searchTerm}&status=${filter === 'all' ? '' : filter}`);
+      setMembers(data);
+    } catch (error) {
+      toast.error('Failed to load members');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      fetchMembers();
+    }, 300);
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchTerm, filter]);
+
+  // Modal State for Add Member
+  const [showModal, setShowModal] = useState(false);
+  const [newMember, setNewMember] = useState({ name: '', age: '', gender: 'Male', phone: '' });
+  const [planData, setPlanData] = useState({ plan: '1_month', startDate: new Date().toISOString().split('T')[0] });
+
+  // Modal State for Renew Plan
+  const [renewModal, setRenewModal] = useState({ show: false, memberId: null, memberName: '' });
+  const [renewPlanData, setRenewPlanData] = useState({ plan: '1_month', startDate: new Date().toISOString().split('T')[0] });
+
+  const handleAddMember = async (e) => {
+    e.preventDefault();
+    try {
+      // 1. Create Member
+      const memberRes = await api.post('/members', newMember);
+      
+      // 2. Assign Plan
+      const prices = { '1_month': 2500, '2_month': 4000, '4_month': 7000, 'yearly': 20000 };
+      const labels = { '1_month': '1 Month', '2_month': '2 Months', '4_month': '4 Months', 'yearly': 'Yearly' };
+      
+      await api.post('/memberships', {
+        memberId: memberRes.data._id,
+        plan: planData.plan,
+        planLabel: labels[planData.plan],
+        price: prices[planData.plan],
+        startDate: planData.startDate
+      });
+
+      toast.success('Member added successfully!');
+      setShowModal(false);
+      setNewMember({ name: '', age: '', gender: 'Male', phone: '' });
+      fetchMembers();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Error adding member');
+    }
+  };
+
+  const handleRenewPlan = async (e) => {
+    e.preventDefault();
+    try {
+      const prices = { '1_month': 2500, '2_month': 4000, '4_month': 7000, 'yearly': 20000 };
+      const labels = { '1_month': '1 Month', '2_month': '2 Months', '4_month': '4 Months', 'yearly': 'Yearly' };
+      
+      await api.post('/memberships', {
+        memberId: renewModal.memberId,
+        plan: renewPlanData.plan,
+        planLabel: labels[renewPlanData.plan],
+        price: prices[renewPlanData.plan],
+        startDate: renewPlanData.startDate
+      });
+
+      toast.success('Plan renewed successfully!');
+      setRenewModal({ show: false, memberId: null, memberName: '' });
+      fetchMembers();
+    } catch (error) {
+      toast.error('Error renewing plan');
+    }
+  };
+
+  const handleDeactivate = async (id) => {
+    if (window.confirm('Are you sure you want to mark this member as inactive?')) {
+      try {
+        await api.put(`/members/${id}`, { isActive: false });
+        toast.success('Member deactivated');
+        fetchMembers();
+      } catch (error) {
+        toast.error('Failed to deactivate member');
+      }
+    }
+  };
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+        <h1>Members</h1>
+        <button className="btn btn-primary" onClick={() => setShowModal(true)}>
+          <FiPlus /> Add Member
+        </button>
+      </div>
+
+      <div className="card" style={{ marginBottom: '2rem', padding: '1rem' }}>
+        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+          <div style={{ flex: 1, minWidth: '250px', position: 'relative' }}>
+            <FiSearch style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
+            <input 
+              type="text" 
+              className="input-field" 
+              placeholder="Search by name or phone..." 
+              style={{ paddingLeft: '2.5rem' }}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto' }}>
+            {['all', 'active', 'expiring', 'expired', 'inactive'].map(f => (
+              <button 
+                key={f}
+                className={filter === f ? 'btn-primary' : 'btn-secondary'}
+                style={{ padding: '0.5rem 1rem', borderRadius: '8px', textTransform: 'capitalize' }}
+                onClick={() => setFilter(f)}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="table-container">
+        {loading ? (
+          <div style={{ padding: '3rem', textAlign: 'center' }}>Loading...</div>
+        ) : members.length === 0 ? (
+          <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)' }}>No members found.</div>
+        ) : (
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Contact</th>
+                <th>Plan</th>
+                <th>End Date</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {members.map(member => (
+                <tr key={member._id}>
+                  <td>
+                    <div style={{ fontWeight: '500' }}>{member.name}</div>
+                    <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Age: {member.age} • {member.gender}</div>
+                  </td>
+                  <td>{member.phone}</td>
+                  <td>{member.currentPlan}</td>
+                  <td>{member.endDate ? new Date(member.endDate).toLocaleDateString() : '-'}</td>
+                  <td>
+                    <span className={`badge badge-${member.status.includes('Active') ? 'active' : member.status.includes('Expiring') ? 'warning' : member.status.includes('Expired') ? 'danger' : 'inactive'}`}>
+                      {member.status}
+                    </span>
+                  </td>
+                  <td>
+                    {member.isActive && (
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <button 
+                          className="btn-primary" 
+                          style={{ padding: '0.4rem 0.6rem', borderRadius: '6px', fontSize: '0.85rem' }}
+                          onClick={() => setRenewModal({ show: true, memberId: member._id, memberName: member.name })}
+                        >
+                          Renew
+                        </button>
+                        <button 
+                          className="btn-secondary" 
+                          style={{ padding: '0.4rem 0.6rem', borderRadius: '6px', fontSize: '0.85rem' }}
+                          onClick={() => navigate(`/members/${member._id}`)}
+                        >
+                          Details
+                        </button>
+                        <button 
+                          className="btn-danger" 
+                          style={{ padding: '0.4rem 0.6rem', borderRadius: '6px', fontSize: '0.85rem' }}
+                          onClick={() => handleDeactivate(member._id)}
+                          title="Remove Member"
+                        >
+                          <FiTrash2 />
+                        </button>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* Add Member Modal */}
+      {showModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
+          <div className="card" style={{ width: '100%', maxWidth: '500px', maxHeight: '90vh', overflowY: 'auto' }}>
+            <h2 style={{ marginBottom: '1.5rem' }}>Add New Member</h2>
+            <form onSubmit={handleAddMember}>
+              <div className="input-group">
+                <label>Name</label>
+                <input type="text" className="input-field" required value={newMember.name} onChange={e => setNewMember({...newMember, name: e.target.value})} />
+              </div>
+              <div style={{ display: 'flex', gap: '1rem' }}>
+                <div className="input-group" style={{ flex: 1 }}>
+                  <label>Age</label>
+                  <input type="number" className="input-field" required value={newMember.age} onChange={e => setNewMember({...newMember, age: e.target.value})} />
+                </div>
+                <div className="input-group" style={{ flex: 1 }}>
+                  <label>Gender</label>
+                  <select className="input-field" value={newMember.gender} onChange={e => setNewMember({...newMember, gender: e.target.value})}>
+                    <option>Male</option>
+                    <option>Female</option>
+                    <option>Other</option>
+                  </select>
+                </div>
+              </div>
+              <div className="input-group">
+                <label>Phone Number</label>
+                <input type="text" className="input-field" required value={newMember.phone} onChange={e => setNewMember({...newMember, phone: e.target.value})} />
+              </div>
+
+              <h3 style={{ margin: '1.5rem 0 1rem' }}>Assign Plan</h3>
+              <div className="input-group">
+                <label>Plan Duration</label>
+                <select className="input-field" value={planData.plan} onChange={e => setPlanData({...planData, plan: e.target.value})}>
+                  <option value="1_month">1 Month (₹2500)</option>
+                  <option value="2_month">2 Months (₹4000)</option>
+                  <option value="4_month">4 Months (₹7000)</option>
+                  <option value="yearly">Yearly (₹20000)</option>
+                </select>
+              </div>
+              <div className="input-group">
+                <label>Start Date</label>
+                <input type="date" className="input-field" required value={planData.startDate} onChange={e => setPlanData({...planData, startDate: e.target.value})} />
+              </div>
+
+              <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
+                <button type="button" className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowModal(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>Save Member</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Renew Plan Modal */}
+      {renewModal.show && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
+          <div className="card" style={{ width: '100%', maxWidth: '400px' }}>
+            <h2 style={{ marginBottom: '0.5rem' }}>Renew Plan</h2>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>For {renewModal.memberName}</p>
+            <form onSubmit={handleRenewPlan}>
+              <div className="input-group">
+                <label>Select New Plan</label>
+                <select className="input-field" value={renewPlanData.plan} onChange={e => setRenewPlanData({...renewPlanData, plan: e.target.value})}>
+                  <option value="1_month">1 Month (₹2500)</option>
+                  <option value="2_month">2 Months (₹4000)</option>
+                  <option value="4_month">4 Months (₹7000)</option>
+                  <option value="yearly">Yearly (₹20000)</option>
+                </select>
+              </div>
+              <div className="input-group">
+                <label>New Start Date</label>
+                <input type="date" className="input-field" required value={renewPlanData.startDate} onChange={e => setRenewPlanData({...renewPlanData, startDate: e.target.value})} />
+              </div>
+
+              <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
+                <button type="button" className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setRenewModal({ show: false, memberId: null, memberName: '' })}>Cancel</button>
+                <button type="submit" className="btn btn-primary" style={{ flex: 1, backgroundColor: 'var(--success)' }}>Confirm Renew</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default MembersPage;
