@@ -29,6 +29,11 @@ app.use('/api/memberships', membershipRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 
+// Health check route for UptimeRobot to keep server awake
+app.get('/api/ping', (req, res) => {
+  res.status(200).json({ status: 'Awake', message: 'GymPulse server is running' });
+});
+
 app.use(notFound);
 app.use(errorHandler);
 
