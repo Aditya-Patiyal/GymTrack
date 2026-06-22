@@ -9,7 +9,7 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     const checkUser = async () => {
-      const userInfo = localStorage.getItem('userInfo');
+      const userInfo = sessionStorage.getItem('userInfo');
       if (userInfo) {
         try {
           const { data } = await api.get('/auth/me');
@@ -18,7 +18,7 @@ export const AuthProvider = ({ children }) => {
           setUser({ ...currentInfo, ...data });
         } catch (error) {
           console.error("Token invalid or expired");
-          localStorage.removeItem('userInfo');
+          sessionStorage.removeItem('userInfo');
           setUser(null);
         }
       }
@@ -29,20 +29,20 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     const { data } = await api.post('/auth/login', { email, password });
-    localStorage.setItem('userInfo', JSON.stringify(data));
+    sessionStorage.setItem('userInfo', JSON.stringify(data));
     setUser(data);
     return data;
   };
 
   const register = async (name, email, password, gymName) => {
     const { data } = await api.post('/auth/register', { name, email, password, gymName });
-    localStorage.setItem('userInfo', JSON.stringify(data));
+    sessionStorage.setItem('userInfo', JSON.stringify(data));
     setUser(data);
     return data;
   };
 
   const logout = () => {
-    localStorage.removeItem('userInfo');
+    sessionStorage.removeItem('userInfo');
     setUser(null);
   };
 
