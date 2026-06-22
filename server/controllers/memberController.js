@@ -84,6 +84,11 @@ export const createMember = async (req, res) => {
   try {
     const { name, age, gender, phone, notes } = req.body;
     
+    const phoneRegex = /^\d{10}$/;
+    if (!phoneRegex.test(phone)) {
+      return res.status(400).json({ message: 'Invalid phone format. Must be exactly 10 digits.' });
+    }
+
     const memberExists = await Member.findOne({ phone, createdBy: req.user._id });
     if (memberExists) {
       return res.status(400).json({ message: 'Member with this phone already exists' });
@@ -107,6 +112,13 @@ export const updateMember = async (req, res) => {
     }
 
     const { name, age, gender, phone, notes, isActive } = req.body;
+
+    if (phone) {
+      const phoneRegex = /^\d{10}$/;
+      if (!phoneRegex.test(phone)) {
+        return res.status(400).json({ message: 'Invalid phone format. Must be exactly 10 digits.' });
+      }
+    }
 
     member.name = name || member.name;
     member.age = age || member.age;

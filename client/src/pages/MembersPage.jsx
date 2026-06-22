@@ -33,6 +33,7 @@ const MembersPage = () => {
   // Modal State for Add Member
   const [showModal, setShowModal] = useState(false);
   const [newMember, setNewMember] = useState({ name: '', age: '', gender: 'Male', phone: '' });
+  const [phoneError, setPhoneError] = useState('');
   const [planData, setPlanData] = useState({ plan: '1_month', startDate: new Date().toISOString().split('T')[0] });
 
   // Modal State for Renew Plan
@@ -41,6 +42,14 @@ const MembersPage = () => {
 
   const handleAddMember = async (e) => {
     e.preventDefault();
+    setPhoneError('');
+
+    const phoneRegex = /^\d{10}$/;
+    if (!phoneRegex.test(newMember.phone)) {
+      setPhoneError('Please enter a valid 10-digit phone number');
+      return;
+    }
+
     try {
       // 1. Create Member
       const memberRes = await api.post('/members', newMember);
@@ -60,6 +69,7 @@ const MembersPage = () => {
       toast.success('Member added successfully!');
       setShowModal(false);
       setNewMember({ name: '', age: '', gender: 'Male', phone: '' });
+      setPhoneError('');
       fetchMembers();
     } catch (error) {
       toast.error(error.response?.data?.message || 'Error adding member');
@@ -231,6 +241,7 @@ const MembersPage = () => {
               <div className="input-group">
                 <label>Phone Number</label>
                 <input type="text" className="input-field" required value={newMember.phone} onChange={e => setNewMember({...newMember, phone: e.target.value})} />
+                {phoneError && <span style={{ color: '#ef4444', fontSize: '0.85rem', marginTop: '0.25rem', display: 'block' }}>{phoneError}</span>}
               </div>
 
               <h3 style={{ margin: '1.5rem 0 1rem' }}>Assign Plan</h3>
