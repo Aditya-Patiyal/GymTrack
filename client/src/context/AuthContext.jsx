@@ -13,11 +13,10 @@ export const AuthProvider = ({ children }) => {
       if (userInfo) {
         try {
           const { data } = await api.get('/auth/me');
-          // Update user info in state
           const currentInfo = JSON.parse(userInfo);
           setUser({ ...currentInfo, ...data });
         } catch (error) {
-          console.error("Token invalid or expired");
+          console.error('Token invalid or expired');
           sessionStorage.removeItem('userInfo');
           setUser(null);
         }

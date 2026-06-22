@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { FiArrowLeft, FiUser, FiCalendar, FiPhone } from 'react-icons/fi';
+import { FiArrowLeft, FiUser, FiCalendar, FiPhone, FiUserPlus } from 'react-icons/fi';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 
 const MemberDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  
+
   const [member, setMember] = useState(null);
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -47,11 +47,11 @@ const MemberDetailPage = () => {
         {/* Profile Card */}
         <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           <div style={{ textAlign: 'center', borderBottom: '1px solid var(--border)', paddingBottom: '1.5rem' }}>
-            <div style={{ 
-              width: '80px', height: '80px', borderRadius: '50%', 
+            <div style={{
+              width: '80px', height: '80px', borderRadius: '50%',
               background: 'linear-gradient(135deg, var(--accent-primary), var(--accent-secondary))',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', 
-              fontSize: '2.5rem', color: 'white', margin: '0 auto 1rem' 
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '2.5rem', color: 'white', margin: '0 auto 1rem'
             }}>
               <FiUser />
             </div>
@@ -71,13 +71,32 @@ const MemberDetailPage = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', color: 'var(--text-secondary)' }}>
               <FiCalendar /> <span style={{ color: 'var(--text-primary)' }}>Joined: {new Date(member.joinDate).toLocaleDateString()}</span>
             </div>
+
+            {/* Added By Section */}
+            {member.addedBy && (
+              <div style={{
+                display: 'flex', alignItems: 'flex-start', gap: '1rem',
+                padding: '0.85rem', borderRadius: '8px',
+                background: 'rgba(var(--accent-primary-rgb, 99, 102, 241), 0.08)',
+                border: '1px solid var(--border)',
+              }}>
+                <FiUserPlus style={{ color: 'var(--accent-primary)', marginTop: '2px', flexShrink: 0 }} />
+                <div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: '0.15rem' }}>Added by</div>
+                  <div style={{ fontWeight: '600', color: 'var(--text-primary)', fontSize: '0.95rem' }}>{member.addedBy.name}</div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', textTransform: 'capitalize' }}>
+                    {member.addedBy.role} · {new Date(member.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
         {/* History Table */}
         <div className="card">
           <h3 style={{ marginBottom: '1.5rem' }}>Membership History</h3>
-          
+
           {history.length === 0 ? (
             <p style={{ color: 'var(--text-secondary)' }}>No plan history available.</p>
           ) : (
@@ -89,6 +108,7 @@ const MemberDetailPage = () => {
                     <th>Price</th>
                     <th>Start Date</th>
                     <th>End Date</th>
+                    <th>Collected By</th>
                     <th>Status</th>
                   </tr>
                 </thead>
@@ -106,6 +126,16 @@ const MemberDetailPage = () => {
                         <td>₹{plan.price}</td>
                         <td>{new Date(plan.startDate).toLocaleDateString()}</td>
                         <td>{endDate.toLocaleDateString()}</td>
+                        <td>
+                          {plan.collectedBy ? (
+                            <div>
+                              <div style={{ fontWeight: '500', fontSize: '0.9rem' }}>{plan.collectedBy.name}</div>
+                              <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', textTransform: 'capitalize' }}>{plan.collectedBy.role}</div>
+                            </div>
+                          ) : (
+                            <span style={{ color: 'var(--text-secondary)' }}>—</span>
+                          )}
+                        </td>
                         <td>
                           {isExpired ? (
                             <span style={{ color: 'var(--danger)' }}>Expired</span>

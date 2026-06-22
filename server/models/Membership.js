@@ -26,6 +26,10 @@ const membershipSchema = new mongoose.Schema({
   endDate: {
     type: Date,
     required: true,
+  },
+  collectedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
   }
 }, { timestamps: true });
 

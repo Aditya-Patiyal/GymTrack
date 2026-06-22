@@ -9,6 +9,8 @@ import memberRoutes from './routes/memberRoutes.js';
 import membershipRoutes from './routes/membershipRoutes.js';
 import paymentRoutes from './routes/paymentRoutes.js';
 import dashboardRoutes from './routes/dashboardRoutes.js';
+import staffRoutes from './routes/staffRoutes.js';
+import deleteRequestRoutes from './routes/deleteRequestRoutes.js';
 
 dotenv.config();
 
@@ -28,6 +30,8 @@ app.use('/api/members', memberRoutes);
 app.use('/api/memberships', membershipRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/staff', staffRoutes);
+app.use('/api/delete-requests', deleteRequestRoutes);
 
 // Health check route for UptimeRobot to keep server awake
 app.get('/api/ping', (req, res) => {

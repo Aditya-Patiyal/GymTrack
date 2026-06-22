@@ -12,11 +12,16 @@ const validateEmail = (email) => {
   return re.test(String(email).toLowerCase());
 };
 
+// Public registration — always creates an OWNER account
 export const registerUser = async (req, res) => {
   const { name, email, password, gymName } = req.body;
 
   if (!validateEmail(email)) {
     return res.status(400).json({ message: 'Invalid email format' });
+  }
+
+  if (!gymName) {
+    return res.status(400).json({ message: 'Gym name is required for owner registration' });
   }
 
   try {
@@ -31,6 +36,8 @@ export const registerUser = async (req, res) => {
       email,
       password,
       gymName,
+      role: 'owner', // Enforced — public registration is always owner
+      ownerId: null,
     });
 
     if (user) {
@@ -39,6 +46,7 @@ export const registerUser = async (req, res) => {
         name: user.name,
         email: user.email,
         gymName: user.gymName,
+        role: user.role,
         token: generateToken(user._id),
       });
     } else {
@@ -65,6 +73,8 @@ export const loginUser = async (req, res) => {
         name: user.name,
         email: user.email,
         gymName: user.gymName,
+        role: user.role,
+        ownerId: user.ownerId,
         token: generateToken(user._id),
       });
     } else {

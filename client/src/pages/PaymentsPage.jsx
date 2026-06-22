@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FiCheckCircle, FiClock } from 'react-icons/fi';
+import { FiCheckCircle, FiClock, FiUser } from 'react-icons/fi';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 
@@ -29,9 +29,9 @@ const PaymentsPage = () => {
     fetchData();
   }, []);
 
-  const [paymentModal, setPaymentModal] = useState({ 
-    show: false, 
-    paymentId: null, 
+  const [paymentModal, setPaymentModal] = useState({
+    show: false,
+    paymentId: null,
     method: 'cash',
     paidAt: new Date().toISOString().split('T')[0]
   });
@@ -39,7 +39,7 @@ const PaymentsPage = () => {
   const handleMarkPaid = async (e) => {
     e.preventDefault();
     try {
-      await api.put(`/payments/${paymentModal.paymentId}/mark-paid`, { 
+      await api.put(`/payments/${paymentModal.paymentId}/mark-paid`, {
         method: paymentModal.method,
         paidAt: paymentModal.paidAt
       });
@@ -56,13 +56,13 @@ const PaymentsPage = () => {
       <h1 style={{ marginBottom: '2rem' }}>Payments & Revenue</h1>
 
       <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', borderBottom: '1px solid var(--border)' }}>
-        <button 
+        <button
           style={{ padding: '1rem', background: 'none', color: activeTab === 'pending' ? 'var(--accent-primary)' : 'var(--text-secondary)', borderBottom: activeTab === 'pending' ? '2px solid var(--accent-primary)' : '2px solid transparent', fontWeight: 600 }}
           onClick={() => setActiveTab('pending')}
         >
           Pending Due ({pending.length})
         </button>
-        <button 
+        <button
           style={{ padding: '1rem', background: 'none', color: activeTab === 'history' ? 'var(--accent-primary)' : 'var(--text-secondary)', borderBottom: activeTab === 'history' ? '2px solid var(--accent-primary)' : '2px solid transparent', fontWeight: 600 }}
           onClick={() => setActiveTab('history')}
         >
@@ -119,6 +119,7 @@ const PaymentsPage = () => {
                   <th>Amount Paid</th>
                   <th>Method</th>
                   <th>Date Paid</th>
+                  <th>Collected By</th>
                 </tr>
               </thead>
               <tbody>
@@ -134,6 +135,19 @@ const PaymentsPage = () => {
                       <span className="badge badge-active">{p.method}</span>
                     </td>
                     <td>{new Date(p.paidAt).toLocaleDateString()}</td>
+                    <td>
+                      {p.markedPaidBy ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <FiUser size={14} style={{ color: 'var(--text-secondary)' }} />
+                          <div>
+                            <div style={{ fontWeight: '500', fontSize: '0.9rem' }}>{p.markedPaidBy.name}</div>
+                            <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', textTransform: 'capitalize' }}>{p.markedPaidBy.role}</div>
+                          </div>
+                        </div>
+                      ) : (
+                        <span style={{ color: 'var(--text-secondary)' }}>—</span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -150,7 +164,7 @@ const PaymentsPage = () => {
             <form onSubmit={handleMarkPaid}>
               <div className="input-group">
                 <label>Payment Method</label>
-                <select className="input-field" value={paymentModal.method} onChange={e => setPaymentModal({...paymentModal, method: e.target.value})}>
+                <select className="input-field" value={paymentModal.method} onChange={e => setPaymentModal({ ...paymentModal, method: e.target.value })}>
                   <option value="cash">Cash 💵</option>
                   <option value="upi">UPI 📱</option>
                   <option value="card">Card 💳</option>
@@ -158,9 +172,8 @@ const PaymentsPage = () => {
               </div>
               <div className="input-group">
                 <label>Payment Date</label>
-                <input type="date" className="input-field" required max={new Date().toISOString().split('T')[0]} value={paymentModal.paidAt} onChange={e => setPaymentModal({...paymentModal, paidAt: e.target.value})} />
+                <input type="date" className="input-field" required max={new Date().toISOString().split('T')[0]} value={paymentModal.paidAt} onChange={e => setPaymentModal({ ...paymentModal, paidAt: e.target.value })} />
               </div>
-
               <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
                 <button type="button" className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setPaymentModal({ show: false, paymentId: null, method: 'cash', paidAt: new Date().toISOString().split('T')[0] })}>Cancel</button>
                 <button type="submit" className="btn btn-primary" style={{ flex: 1, backgroundColor: 'var(--success)' }}>Confirm Paid</button>

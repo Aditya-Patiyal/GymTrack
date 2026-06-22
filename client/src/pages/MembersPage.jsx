@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiSearch, FiPlus, FiTrash2 } from 'react-icons/fi';
+import { FiSearch, FiPlus, FiTrash2, FiAlertOctagon } from 'react-icons/fi';
 import api from '../services/api';
 import toast from 'react-hot-toast';
+import { AuthContext } from '../context/AuthContext';
 
 const MembersPage = () => {
   const [members, setMembers] = useState([]);
@@ -10,6 +11,8 @@ const MembersPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filter, setFilter] = useState('all');
   const navigate = useNavigate();
+  const { user } = useContext(AuthContext);
+  const isOwner = user?.role === 'owner';
 
   const fetchMembers = async () => {
     setLoading(true);
@@ -40,6 +43,9 @@ const MembersPage = () => {
   const [renewModal, setRenewModal] = useState({ show: false, memberId: null, memberName: '' });
   const [renewPlanData, setRenewPlanData] = useState({ plan: '1_month', startDate: new Date().toISOString().split('T')[0] });
 
+  // Delete Request Modal (staff only)
+  const [deleteRequestModal, setDeleteRequestModal] = useState({ show: false, memberId: null, memberName: '', reason: '' });
+
   const handleAddMember = async (e) => {
     e.preventDefault();
     setPhoneError('');
@@ -51,13 +57,11 @@ const MembersPage = () => {
     }
 
     try {
-      // 1. Create Member
       const memberRes = await api.post('/members', newMember);
-      
-      // 2. Assign Plan
+
       const prices = { '1_month': 2500, '2_month': 4000, '4_month': 7000, 'yearly': 20000 };
       const labels = { '1_month': '1 Month', '2_month': '2 Months', '4_month': '4 Months', 'yearly': 'Yearly' };
-      
+
       await api.post('/memberships', {
         memberId: memberRes.data._id,
         plan: planData.plan,
@@ -81,7 +85,7 @@ const MembersPage = () => {
     try {
       const prices = { '1_month': 2500, '2_month': 4000, '4_month': 7000, 'yearly': 20000 };
       const labels = { '1_month': '1 Month', '2_month': '2 Months', '4_month': '4 Months', 'yearly': 'Yearly' };
-      
+
       await api.post('/memberships', {
         memberId: renewModal.memberId,
         plan: renewPlanData.plan,
@@ -99,14 +103,28 @@ const MembersPage = () => {
   };
 
   const handleDeactivate = async (id) => {
-    if (window.confirm('Are you sure you want to mark this member as inactive?')) {
+    if (window.confirm('Are you sure you want to deactivate this member?')) {
       try {
-        await api.put(`/members/${id}`, { isActive: false });
+        await api.delete(`/members/${id}`);
         toast.success('Member deactivated');
         fetchMembers();
       } catch (error) {
         toast.error('Failed to deactivate member');
       }
+    }
+  };
+
+  const handleDeleteRequest = async (e) => {
+    e.preventDefault();
+    try {
+      await api.post('/delete-requests', {
+        memberId: deleteRequestModal.memberId,
+        reason: deleteRequestModal.reason,
+      });
+      toast.success('Delete request sent to owner');
+      setDeleteRequestModal({ show: false, memberId: null, memberName: '', reason: '' });
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Error sending request');
     }
   };
 
@@ -123,10 +141,10 @@ const MembersPage = () => {
         <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: '250px', position: 'relative' }}>
             <FiSearch style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
-            <input 
-              type="text" 
-              className="input-field" 
-              placeholder="Search by name or phone..." 
+            <input
+              type="text"
+              className="input-field"
+              placeholder="Search by name or phone..."
               style={{ paddingLeft: '2.5rem' }}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -134,7 +152,7 @@ const MembersPage = () => {
           </div>
           <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto' }}>
             {['all', 'active', 'expiring', 'expired', 'inactive'].map(f => (
-              <button 
+              <button
                 key={f}
                 className={filter === f ? 'btn-primary' : 'btn-secondary'}
                 style={{ padding: '0.5rem 1rem', borderRadius: '8px', textTransform: 'capitalize' }}
@@ -158,6 +176,7 @@ const MembersPage = () => {
               <tr>
                 <th>Name</th>
                 <th>Contact</th>
+                <th>Added By</th>
                 <th>Plan</th>
                 <th>End Date</th>
                 <th>Status</th>
@@ -172,6 +191,16 @@ const MembersPage = () => {
                     <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Age: {member.age} • {member.gender}</div>
                   </td>
                   <td>{member.phone}</td>
+                  <td>
+                    {member.addedBy ? (
+                      <div>
+                        <div style={{ fontWeight: '500', fontSize: '0.9rem' }}>{member.addedBy.name}</div>
+                        <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', textTransform: 'capitalize' }}>{member.addedBy.role}</div>
+                      </div>
+                    ) : (
+                      <span style={{ color: 'var(--text-secondary)' }}>—</span>
+                    )}
+                  </td>
                   <td>{member.currentPlan}</td>
                   <td>{member.endDate ? new Date(member.endDate).toLocaleDateString() : '-'}</td>
                   <td>
@@ -182,28 +211,41 @@ const MembersPage = () => {
                   <td>
                     {member.isActive && (
                       <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <button 
-                          className="btn-primary" 
+                        <button
+                          className="btn-primary"
                           style={{ padding: '0.4rem 0.6rem', borderRadius: '6px', fontSize: '0.85rem' }}
                           onClick={() => setRenewModal({ show: true, memberId: member._id, memberName: member.name })}
                         >
                           Renew
                         </button>
-                        <button 
-                          className="btn-secondary" 
+                        <button
+                          className="btn-secondary"
                           style={{ padding: '0.4rem 0.6rem', borderRadius: '6px', fontSize: '0.85rem' }}
                           onClick={() => navigate(`/members/${member._id}`)}
                         >
                           Details
                         </button>
-                        <button 
-                          className="btn-danger" 
-                          style={{ padding: '0.4rem 0.6rem', borderRadius: '6px', fontSize: '0.85rem' }}
-                          onClick={() => handleDeactivate(member._id)}
-                          title="Remove Member"
-                        >
-                          <FiTrash2 />
-                        </button>
+                        {isOwner ? (
+                          <button
+                            className="btn-danger"
+                            style={{ padding: '0.4rem 0.6rem', borderRadius: '6px', fontSize: '0.85rem' }}
+                            onClick={() => handleDeactivate(member._id)}
+                            title="Deactivate Member"
+                          >
+                            <FiTrash2 />
+                          </button>
+                        ) : (
+                          <button
+                            style={{
+                              padding: '0.4rem 0.6rem', borderRadius: '6px', fontSize: '0.85rem',
+                              background: 'rgba(239,68,68,0.1)', color: 'var(--danger)', border: '1px solid var(--danger)'
+                            }}
+                            onClick={() => setDeleteRequestModal({ show: true, memberId: member._id, memberName: member.name, reason: '' })}
+                            title="Request Deletion"
+                          >
+                            <FiAlertOctagon />
+                          </button>
+                        )}
                       </div>
                     )}
                   </td>
@@ -222,16 +264,16 @@ const MembersPage = () => {
             <form onSubmit={handleAddMember}>
               <div className="input-group">
                 <label>Name</label>
-                <input type="text" className="input-field" required value={newMember.name} onChange={e => setNewMember({...newMember, name: e.target.value})} />
+                <input type="text" className="input-field" required value={newMember.name} onChange={e => setNewMember({ ...newMember, name: e.target.value })} />
               </div>
               <div style={{ display: 'flex', gap: '1rem' }}>
                 <div className="input-group" style={{ flex: 1 }}>
                   <label>Age</label>
-                  <input type="number" className="input-field" required value={newMember.age} onChange={e => setNewMember({...newMember, age: e.target.value})} />
+                  <input type="number" className="input-field" required value={newMember.age} onChange={e => setNewMember({ ...newMember, age: e.target.value })} />
                 </div>
                 <div className="input-group" style={{ flex: 1 }}>
                   <label>Gender</label>
-                  <select className="input-field" value={newMember.gender} onChange={e => setNewMember({...newMember, gender: e.target.value})}>
+                  <select className="input-field" value={newMember.gender} onChange={e => setNewMember({ ...newMember, gender: e.target.value })}>
                     <option>Male</option>
                     <option>Female</option>
                     <option>Other</option>
@@ -240,14 +282,14 @@ const MembersPage = () => {
               </div>
               <div className="input-group">
                 <label>Phone Number</label>
-                <input type="text" className="input-field" required value={newMember.phone} onChange={e => setNewMember({...newMember, phone: e.target.value})} />
+                <input type="text" className="input-field" required value={newMember.phone} onChange={e => setNewMember({ ...newMember, phone: e.target.value })} />
                 {phoneError && <span style={{ color: '#ef4444', fontSize: '0.85rem', marginTop: '0.25rem', display: 'block' }}>{phoneError}</span>}
               </div>
 
               <h3 style={{ margin: '1.5rem 0 1rem' }}>Assign Plan</h3>
               <div className="input-group">
                 <label>Plan Duration</label>
-                <select className="input-field" value={planData.plan} onChange={e => setPlanData({...planData, plan: e.target.value})}>
+                <select className="input-field" value={planData.plan} onChange={e => setPlanData({ ...planData, plan: e.target.value })}>
                   <option value="1_month">1 Month (₹2500)</option>
                   <option value="2_month">2 Months (₹4000)</option>
                   <option value="4_month">4 Months (₹7000)</option>
@@ -256,7 +298,7 @@ const MembersPage = () => {
               </div>
               <div className="input-group">
                 <label>Start Date</label>
-                <input type="date" className="input-field" required value={planData.startDate} onChange={e => setPlanData({...planData, startDate: e.target.value})} />
+                <input type="date" className="input-field" required value={planData.startDate} onChange={e => setPlanData({ ...planData, startDate: e.target.value })} />
               </div>
 
               <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
@@ -277,7 +319,7 @@ const MembersPage = () => {
             <form onSubmit={handleRenewPlan}>
               <div className="input-group">
                 <label>Select New Plan</label>
-                <select className="input-field" value={renewPlanData.plan} onChange={e => setRenewPlanData({...renewPlanData, plan: e.target.value})}>
+                <select className="input-field" value={renewPlanData.plan} onChange={e => setRenewPlanData({ ...renewPlanData, plan: e.target.value })}>
                   <option value="1_month">1 Month (₹2500)</option>
                   <option value="2_month">2 Months (₹4000)</option>
                   <option value="4_month">4 Months (₹7000)</option>
@@ -286,12 +328,39 @@ const MembersPage = () => {
               </div>
               <div className="input-group">
                 <label>New Start Date</label>
-                <input type="date" className="input-field" required value={renewPlanData.startDate} onChange={e => setRenewPlanData({...renewPlanData, startDate: e.target.value})} />
+                <input type="date" className="input-field" required value={renewPlanData.startDate} onChange={e => setRenewPlanData({ ...renewPlanData, startDate: e.target.value })} />
               </div>
-
               <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
                 <button type="button" className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setRenewModal({ show: false, memberId: null, memberName: '' })}>Cancel</button>
                 <button type="submit" className="btn btn-primary" style={{ flex: 1, backgroundColor: 'var(--success)' }}>Confirm Renew</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Request Modal — Staff only */}
+      {deleteRequestModal.show && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
+          <div className="card" style={{ width: '100%', maxWidth: '400px' }}>
+            <h2 style={{ marginBottom: '0.5rem' }}>Request Deletion</h2>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
+              Requesting deletion for <strong>{deleteRequestModal.memberName}</strong>. The gym owner will be notified to approve or reject.
+            </p>
+            <form onSubmit={handleDeleteRequest}>
+              <div className="input-group">
+                <label>Reason (optional)</label>
+                <input
+                  type="text"
+                  className="input-field"
+                  placeholder="e.g. Duplicate entry, customer request..."
+                  value={deleteRequestModal.reason}
+                  onChange={e => setDeleteRequestModal({ ...deleteRequestModal, reason: e.target.value })}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
+                <button type="button" className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setDeleteRequestModal({ show: false, memberId: null, memberName: '', reason: '' })}>Cancel</button>
+                <button type="submit" style={{ flex: 1, padding: '0.75rem', borderRadius: '8px', background: 'rgba(239,68,68,0.15)', color: 'var(--danger)', border: '1px solid var(--danger)', fontWeight: '600', cursor: 'pointer' }}>Send Request</button>
               </div>
             </form>
           </div>

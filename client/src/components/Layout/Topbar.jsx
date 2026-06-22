@@ -14,7 +14,7 @@ const Topbar = () => {
       <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
         <div style={{ textAlign: 'right' }}>
           <div style={{ fontWeight: '500' }}>{user?.name}</div>
-          <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{user?.role === 'owner' ? 'Owner' : 'Staff'}</div>
+          <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', textTransform: 'capitalize' }}>{user?.role || 'Staff'}</div>
         </div>
         
         <button 

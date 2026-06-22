@@ -1,18 +1,21 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiUsers, FiActivity, FiAlertCircle, FiDollarSign, FiCheckCircle } from 'react-icons/fi';
+import { FiUsers, FiActivity, FiAlertCircle, FiDollarSign, FiCheckCircle, FiAlertOctagon } from 'react-icons/fi';
 import api from '../services/api';
 import toast from 'react-hot-toast';
+import { AuthContext } from '../context/AuthContext';
 
 const DashboardPage = () => {
   const [stats, setStats] = useState(null);
   const [reminders, setReminders] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const { user } = useContext(AuthContext);
+  const isOwner = user?.role === 'owner';
 
-  const [paymentModal, setPaymentModal] = useState({ 
-    show: false, 
-    paymentId: null, 
+  const [paymentModal, setPaymentModal] = useState({
+    show: false,
+    paymentId: null,
     method: 'cash',
     paidAt: new Date().toISOString().split('T')[0]
   });
@@ -36,7 +39,7 @@ const DashboardPage = () => {
   const handleMarkPaid = async (e) => {
     e.preventDefault();
     try {
-      await api.put(`/payments/${paymentModal.paymentId}/mark-paid`, { 
+      await api.put(`/payments/${paymentModal.paymentId}/mark-paid`, {
         method: paymentModal.method,
         paidAt: paymentModal.paidAt
       });
@@ -50,11 +53,12 @@ const DashboardPage = () => {
 
   if (loading) return <div>Loading dashboard...</div>;
 
+  // Build stat cards — hide revenue for staff
   const statCards = [
     { title: 'Total Members', value: stats?.totalMembers || 0, icon: <FiUsers />, color: 'var(--accent-primary)' },
     { title: 'Active Members', value: stats?.activeMembers || 0, icon: <FiActivity />, color: 'var(--success)' },
     { title: 'Expiring Soon', value: stats?.expiringSoon || 0, icon: <FiAlertCircle />, color: 'var(--warning)' },
-    { title: 'Revenue (This Month)', value: `₹${stats?.revenue || 0}`, icon: <FiDollarSign />, color: 'var(--accent-secondary)' },
+    ...(isOwner ? [{ title: 'Revenue (This Month)', value: `₹${stats?.revenue || 0}`, icon: <FiDollarSign />, color: 'var(--accent-secondary)' }] : []),
   ];
 
   return (
@@ -65,10 +69,10 @@ const DashboardPage = () => {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem', marginBottom: '2.5rem' }}>
         {statCards.map((card, idx) => (
           <div key={idx} className="card" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-            <div style={{ 
-              width: '60px', height: '60px', borderRadius: '12px', 
+            <div style={{
+              width: '60px', height: '60px', borderRadius: '12px',
               background: `linear-gradient(135deg, ${card.color}40, transparent)`,
-              color: card.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.8rem' 
+              color: card.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.8rem'
             }}>
               {card.icon}
             </div>
@@ -80,13 +84,36 @@ const DashboardPage = () => {
         ))}
       </div>
 
+      {/* Delete Requests Alert — Owner only */}
+      {isOwner && stats?.pendingDeleteRequests > 0 && (
+        <div
+          onClick={() => navigate('/delete-requests')}
+          style={{
+            display: 'flex', alignItems: 'center', gap: '1rem',
+            background: 'rgba(239, 68, 68, 0.1)', border: '1px solid var(--danger)',
+            borderRadius: '12px', padding: '1rem 1.5rem', marginBottom: '2rem',
+            cursor: 'pointer', transition: 'opacity 0.2s',
+          }}
+        >
+          <FiAlertOctagon color="var(--danger)" size={22} />
+          <div>
+            <div style={{ fontWeight: '600', color: 'var(--danger)' }}>
+              {stats.pendingDeleteRequests} Pending Delete Request{stats.pendingDeleteRequests > 1 ? 's' : ''}
+            </div>
+            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+              Staff have raised member deletion requests waiting for your approval.
+            </div>
+          </div>
+        </div>
+      )}
+
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '2rem' }}>
         {/* Reminders Panel */}
         <div className="card">
           <h3 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <FiAlertCircle color="var(--warning)" /> Needs Attention
           </h3>
-          
+
           {reminders.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
               No members are expiring soon.
@@ -104,8 +131,8 @@ const DashboardPage = () => {
                       {reminder.status.text}
                     </span>
                     {reminder.paymentId && (
-                      <button 
-                        className="btn-primary" 
+                      <button
+                        className="btn-primary"
                         style={{ padding: '0.3rem 0.6rem', fontSize: '0.8rem', borderRadius: '4px' }}
                         onClick={() => setPaymentModal({ show: true, paymentId: reminder.paymentId, method: 'cash', paidAt: new Date().toISOString().split('T')[0] })}
                       >
@@ -132,6 +159,11 @@ const DashboardPage = () => {
             <button className="btn btn-secondary" style={{ width: '100%', justifyContent: 'flex-start' }} onClick={() => navigate('/members')}>
               View All Members
             </button>
+            {isOwner && (
+              <button className="btn btn-secondary" style={{ width: '100%', justifyContent: 'flex-start' }} onClick={() => navigate('/staff')}>
+                Manage Staff
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -144,7 +176,7 @@ const DashboardPage = () => {
             <form onSubmit={handleMarkPaid}>
               <div className="input-group">
                 <label>Payment Method</label>
-                <select className="input-field" value={paymentModal.method} onChange={e => setPaymentModal({...paymentModal, method: e.target.value})}>
+                <select className="input-field" value={paymentModal.method} onChange={e => setPaymentModal({ ...paymentModal, method: e.target.value })}>
                   <option value="cash">Cash 💵</option>
                   <option value="upi">UPI 📱</option>
                   <option value="card">Card 💳</option>
@@ -152,9 +184,8 @@ const DashboardPage = () => {
               </div>
               <div className="input-group">
                 <label>Payment Date</label>
-                <input type="date" className="input-field" required max={new Date().toISOString().split('T')[0]} value={paymentModal.paidAt} onChange={e => setPaymentModal({...paymentModal, paidAt: e.target.value})} />
+                <input type="date" className="input-field" required max={new Date().toISOString().split('T')[0]} value={paymentModal.paidAt} onChange={e => setPaymentModal({ ...paymentModal, paidAt: e.target.value })} />
               </div>
-
               <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
                 <button type="button" className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setPaymentModal({ show: false, paymentId: null, method: 'cash', paidAt: new Date().toISOString().split('T')[0] })}>Cancel</button>
                 <button type="submit" className="btn btn-primary" style={{ flex: 1, backgroundColor: 'var(--success)' }}>Confirm Paid</button>

@@ -10,8 +10,9 @@ const getMonthsForPlan = (plan) => {
 export const createMembership = async (req, res) => {
   try {
     const { memberId, plan, planLabel, price, startDate } = req.body;
-    
-    const member = await Member.findOne({ _id: memberId, createdBy: req.user._id });
+
+    // Allow access for both owner and staff (scoped to the gym owner's members)
+    const member = await Member.findOne({ _id: memberId, createdBy: req.gymOwnerId });
     if (!member) {
       return res.status(404).json({ message: 'Member not found' });
     }
@@ -26,7 +27,8 @@ export const createMembership = async (req, res) => {
       planLabel,
       price,
       startDate: start,
-      endDate: end
+      endDate: end,
+      collectedBy: req.user._id, // Track who created/renewed the plan
     });
 
     // Auto-create pending payment
@@ -34,9 +36,10 @@ export const createMembership = async (req, res) => {
       member: memberId,
       membership: membership._id,
       amount: price,
-      status: 'pending'
+      status: 'pending',
     });
 
+    await membership.populate('collectedBy', 'name role');
     res.status(201).json(membership);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -45,7 +48,9 @@ export const createMembership = async (req, res) => {
 
 export const getMemberHistory = async (req, res) => {
   try {
-    const memberships = await Membership.find({ member: req.params.memberId }).sort({ startDate: -1 });
+    const memberships = await Membership.find({ member: req.params.memberId })
+      .populate('collectedBy', 'name role')
+      .sort({ startDate: -1 });
     res.json(memberships);
   } catch (error) {
     res.status(500).json({ message: error.message });

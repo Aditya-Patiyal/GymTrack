@@ -17,11 +17,18 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
+    enum: ['owner', 'staff'],
     default: 'owner',
+  },
+  ownerId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null,
   },
   gymName: {
     type: String,
-    required: true,
+    required: false,
+    default: '',
   }
 }, { timestamps: true });
 
