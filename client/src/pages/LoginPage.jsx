@@ -14,6 +14,12 @@ const LoginPage = () => {
   });
 
   const [loading, setLoading] = useState(false);
+  const [emailError, setEmailError] = useState('');
+
+  const validateEmail = (email) => {
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return re.test(String(email).toLowerCase());
+  };
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -21,6 +27,13 @@ const LoginPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setEmailError('');
+    
+    if (!validateEmail(formData.email)) {
+      setEmailError('Please enter a valid email address');
+      return;
+    }
+
     setLoading(true);
     try {
       if (isLogin) {
@@ -76,6 +89,7 @@ const LoginPage = () => {
           <div className="input-group">
             <label>Email Address</label>
             <input type="email" name="email" className="input-field" placeholder="you@example.com" value={formData.email} onChange={handleChange} required />
+            {emailError && <span style={{ color: '#ef4444', fontSize: '0.85rem', marginTop: '0.25rem', display: 'block' }}>{emailError}</span>}
           </div>
 
           <div className="input-group">

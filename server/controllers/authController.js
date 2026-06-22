@@ -7,8 +7,17 @@ const generateToken = (id) => {
   });
 };
 
+const validateEmail = (email) => {
+  const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return re.test(String(email).toLowerCase());
+};
+
 export const registerUser = async (req, res) => {
   const { name, email, password, gymName } = req.body;
+
+  if (!validateEmail(email)) {
+    return res.status(400).json({ message: 'Invalid email format' });
+  }
 
   try {
     const userExists = await User.findOne({ email });
@@ -42,6 +51,10 @@ export const registerUser = async (req, res) => {
 
 export const loginUser = async (req, res) => {
   const { email, password } = req.body;
+
+  if (!validateEmail(email)) {
+    return res.status(400).json({ message: 'Invalid email format' });
+  }
 
   try {
     const user = await User.findOne({ email });
