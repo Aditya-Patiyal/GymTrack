@@ -24,22 +24,43 @@ export const approveRegistration = async (req, res) => {
     owner.rejectionReason = '';
     await owner.save();
 
-    res.json({ message: 'Owner approved successfully', owner });
-
-    // Send email asynchronously (non-blocking)
-    setImmediate(async () => {
-      try {
-        await sendEmail({
-          to: owner.email,
-          subject: 'GymPulse Account Approved!',
-          html: `<p>Hi ${owner.name},</p>
-                 <p>Your registration for <strong>${owner.gymName}</strong> has been approved by the admin team.</p>
-                 <p>You can now log in to your dashboard and start managing your gym.</p>`
-        });
-      } catch (e) {
-        console.error('Approval email failed:', e);
-      }
+    // Send approval email BEFORE responding (has 10s timeout in sendEmail)
+    await sendEmail({
+      to: owner.email,
+      subject: '🎉 Your GymPulse Account Has Been Approved!',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f9f9f9; border-radius: 10px; overflow: hidden;">
+          <div style="background: linear-gradient(135deg, #6c63ff, #48cae4); padding: 30px; text-align: center;">
+            <h1 style="color: white; margin: 0; font-size: 24px;">GymPulse</h1>
+            <p style="color: rgba(255,255,255,0.85); margin: 8px 0 0;">Account Approved</p>
+          </div>
+          <div style="padding: 30px; background: white;">
+            <h2 style="color: #333; margin-top: 0;">Welcome aboard, ${owner.name}! 🏋️</h2>
+            <p style="color: #555; line-height: 1.6;">
+              We're excited to let you know that your gym <strong>${owner.gymName}</strong> has been approved by our admin team.
+              Your account is now fully active and ready to use.
+            </p>
+            <p style="color: #555;">You can now:</p>
+            <ul style="color: #555; line-height: 2;">
+              <li>Add and manage your gym members</li>
+              <li>Track payments and memberships</li>
+              <li>Invite your staff to the platform</li>
+            </ul>
+            <div style="text-align: center; margin-top: 30px;">
+              <a href="https://gym-track-phi.vercel.app/login"
+                 style="background: linear-gradient(135deg, #6c63ff, #48cae4); color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 16px; display: inline-block;">
+                🔑 Login to Your Dashboard
+              </a>
+            </div>
+          </div>
+          <div style="padding: 20px; text-align: center; background: #f9f9f9; color: #aaa; font-size: 12px;">
+            GymPulse Platform · If you have any questions, reply to this email.
+          </div>
+        </div>
+      `
     });
+
+    res.json({ message: 'Owner approved successfully', owner });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -59,23 +80,42 @@ export const rejectRegistration = async (req, res) => {
     owner.rejectionReason = reason || 'No reason provided by admin.';
     await owner.save();
 
-    res.json({ message: 'Owner rejected successfully', owner });
-
-    // Send email asynchronously (non-blocking)
-    setImmediate(async () => {
-      try {
-        await sendEmail({
-          to: owner.email,
-          subject: 'GymPulse Registration Update',
-          html: `<p>Hi ${owner.name},</p>
-                 <p>Unfortunately, your registration for <strong>${owner.gymName}</strong> has been rejected by the admin team.</p>
-                 <p><strong>Reason:</strong> ${owner.rejectionReason}</p>
-                 <p>If you believe this is a mistake, please contact support.</p>`
-        });
-      } catch (e) {
-        console.error('Rejection email failed:', e);
-      }
+    // Send rejection email BEFORE responding (has 10s timeout in sendEmail)
+    await sendEmail({
+      to: owner.email,
+      subject: 'Update on Your GymPulse Registration',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f9f9f9; border-radius: 10px; overflow: hidden;">
+          <div style="background: #444; padding: 30px; text-align: center;">
+            <h1 style="color: white; margin: 0; font-size: 24px;">GymPulse</h1>
+            <p style="color: rgba(255,255,255,0.7); margin: 8px 0 0;">Registration Update</p>
+          </div>
+          <div style="padding: 30px; background: white;">
+            <h2 style="color: #333; margin-top: 0;">Hi ${owner.name},</h2>
+            <p style="color: #555; line-height: 1.6;">
+              Thank you for registering <strong>${owner.gymName}</strong> on GymPulse. After review, 
+              we were unable to approve your registration at this time.
+            </p>
+            <div style="background: #fff3f3; border-left: 4px solid #e17055; padding: 16px; border-radius: 4px; margin: 20px 0;">
+              <strong style="color: #c0392b;">Reason:</strong>
+              <p style="color: #555; margin: 8px 0 0;">${owner.rejectionReason}</p>
+            </div>
+            <p style="color: #555;">If you believe this is a mistake or would like to re-apply with updated information, you can register again on our platform.</p>
+            <div style="text-align: center; margin-top: 30px;">
+              <a href="https://gym-track-phi.vercel.app/login"
+                 style="background: #444; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 16px; display: inline-block;">
+                Go to GymPulse
+              </a>
+            </div>
+          </div>
+          <div style="padding: 20px; text-align: center; background: #f9f9f9; color: #aaa; font-size: 12px;">
+            GymPulse Platform · If you have any questions, reply to this email.
+          </div>
+        </div>
+      `
     });
+
+    res.json({ message: 'Owner rejected successfully', owner });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

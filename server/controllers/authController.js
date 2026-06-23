@@ -43,29 +43,55 @@ export const registerUser = async (req, res) => {
     });
 
     if (user) {
-      // Respond immediately — don't wait for email
+      // Send notification email to super admin BEFORE responding.
+      // sendEmail has a built-in 10s timeout — safe to await in serverless.
+      await sendEmail({
+        to: process.env.EMAIL_USER,
+        subject: '🏋️ New Gym Registration Request — Action Required',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f9f9f9; border-radius: 10px; overflow: hidden;">
+            <div style="background: linear-gradient(135deg, #6c63ff, #48cae4); padding: 30px; text-align: center;">
+              <h1 style="color: white; margin: 0; font-size: 24px;">GymPulse</h1>
+              <p style="color: rgba(255,255,255,0.85); margin: 8px 0 0;">Super Admin Notification</p>
+            </div>
+            <div style="padding: 30px; background: white;">
+              <h2 style="color: #333; margin-top: 0;">New Gym Registration Request</h2>
+              <p style="color: #555;">A new gym owner has registered and is awaiting your approval:</p>
+              <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+                <tr style="background: #f0f0f0;">
+                  <td style="padding: 12px; font-weight: bold; width: 40%;">Owner Name</td>
+                  <td style="padding: 12px;">${name}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 12px; font-weight: bold;">Email</td>
+                  <td style="padding: 12px;">${email}</td>
+                </tr>
+                <tr style="background: #f0f0f0;">
+                  <td style="padding: 12px; font-weight: bold;">Gym Name</td>
+                  <td style="padding: 12px;">${gymName}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 12px; font-weight: bold;">Submitted At</td>
+                  <td style="padding: 12px;">${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} IST</td>
+                </tr>
+              </table>
+              <div style="text-align: center; margin-top: 30px;">
+                <a href="https://gym-track-phi.vercel.app/login" 
+                   style="background: linear-gradient(135deg, #6c63ff, #48cae4); color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 16px; display: inline-block;">
+                  🔑 Login to Review Request
+                </a>
+              </div>
+            </div>
+            <div style="padding: 20px; text-align: center; background: #f9f9f9; color: #aaa; font-size: 12px;">
+              GymPulse Platform · Super Admin Portal
+            </div>
+          </div>
+        `
+      });
+
       res.status(202).json({
         message: 'Registration submitted successfully. Please wait for super admin approval before logging in.',
         pending: true
-      });
-
-      // Send notification email to super admin asynchronously (non-blocking)
-      setImmediate(async () => {
-        try {
-          await sendEmail({
-            to: process.env.EMAIL_USER,
-            subject: 'New Gym Registration Request',
-            html: `<p>A new gym owner has registered and is awaiting approval:</p>
-                   <ul>
-                     <li><strong>Name:</strong> ${name}</li>
-                     <li><strong>Email:</strong> ${email}</li>
-                     <li><strong>Gym Name:</strong> ${gymName}</li>
-                   </ul>
-                   <p>Log in to your super admin dashboard to approve or reject this request.</p>`
-          });
-        } catch (emailErr) {
-          console.error('Failed to send admin notification email:', emailErr);
-        }
       });
     } else {
       res.status(400).json({ message: 'Invalid user data' });
