@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 
 const LoginPage = () => {
   const [isLogin, setIsLogin] = useState(true);
+  const [registrationPending, setRegistrationPending] = useState(false);
   const { login, register } = useContext(AuthContext);
   
   const [formData, setFormData] = useState({
@@ -36,13 +37,17 @@ const LoginPage = () => {
 
     setLoading(true);
     try {
-      if (isLogin) {
-        await login(formData.email, formData.password);
-        toast.success('Logged in successfully!');
-      } else {
-        await register(formData.name, formData.email, formData.password, formData.gymName);
-        toast.success('Account created successfully!');
-      }
+        if (isLogin) {
+          await login(formData.email, formData.password);
+          toast.success('Logged in successfully!');
+        } else {
+          const res = await register(formData.name, formData.email, formData.password, formData.gymName);
+          if (res?.pending) {
+            setRegistrationPending(true);
+          } else {
+            toast.success('Account created successfully!');
+          }
+        }
     } catch (err) {
       toast.error(err.response?.data?.message || 'An error occurred');
     } finally {
@@ -72,35 +77,55 @@ const LoginPage = () => {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit}>
-          {!isLogin && (
-            <>
-              <div className="input-group">
-                <label>Your Name</label>
-                <input type="text" name="name" className="input-field" placeholder="John Doe" value={formData.name} onChange={handleChange} required />
-              </div>
-              <div className="input-group">
-                <label>Gym Name</label>
-                <input type="text" name="gymName" className="input-field" placeholder="PowerFit Gym" value={formData.gymName} onChange={handleChange} required />
-              </div>
-            </>
-          )}
-
-          <div className="input-group">
-            <label>Email Address</label>
-            <input type="email" name="email" className="input-field" placeholder="you@example.com" value={formData.email} onChange={handleChange} required />
-            {emailError && <span style={{ color: '#ef4444', fontSize: '0.85rem', marginTop: '0.25rem', display: 'block' }}>{emailError}</span>}
+        {registrationPending ? (
+          <div style={{ textAlign: 'center', padding: '2rem 0' }}>
+            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>⏳</div>
+            <h3 style={{ marginBottom: '1rem' }}>Registration Submitted</h3>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>
+              Your gym registration has been sent to our admin team for review. 
+              You will receive an email once your account is approved and ready to use.
+            </p>
+            <button 
+              className="btn btn-secondary" 
+              onClick={() => {
+                setRegistrationPending(false);
+                setIsLogin(true);
+              }}
+            >
+              Back to Login
+            </button>
           </div>
+        ) : (
+          <form onSubmit={handleSubmit}>
+            {!isLogin && (
+              <>
+                <div className="input-group">
+                  <label>Your Name</label>
+                  <input type="text" name="name" className="input-field" placeholder="John Doe" value={formData.name} onChange={handleChange} required />
+                </div>
+                <div className="input-group">
+                  <label>Gym Name</label>
+                  <input type="text" name="gymName" className="input-field" placeholder="PowerFit Gym" value={formData.gymName} onChange={handleChange} required />
+                </div>
+              </>
+            )}
 
-          <div className="input-group">
-            <label>Password</label>
-            <input type="password" name="password" className="input-field" placeholder="••••••••" value={formData.password} onChange={handleChange} required />
-          </div>
+            <div className="input-group">
+              <label>Email Address</label>
+              <input type="email" name="email" className="input-field" placeholder="you@example.com" value={formData.email} onChange={handleChange} required />
+              {emailError && <span style={{ color: '#ef4444', fontSize: '0.85rem', marginTop: '0.25rem', display: 'block' }}>{emailError}</span>}
+            </div>
 
-          <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '1rem' }} disabled={loading}>
-            {loading ? 'Processing...' : (isLogin ? 'Sign In' : 'Create Account')}
-          </button>
-        </form>
+            <div className="input-group">
+              <label>Password</label>
+              <input type="password" name="password" className="input-field" placeholder="••••••••" value={formData.password} onChange={handleChange} required />
+            </div>
+
+            <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '1rem' }} disabled={loading}>
+              {loading ? 'Processing...' : (isLogin ? 'Sign In' : 'Create Account')}
+            </button>
+          </form>
+        )}
       </div>
     </div>
   );

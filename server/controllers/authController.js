@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
+import { sendEmail } from '../utils/sendEmail.js';
 
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
@@ -36,18 +37,32 @@ export const registerUser = async (req, res) => {
       email,
       password,
       gymName,
-      role: 'owner', // Enforced — public registration is always owner
+      role: 'owner',
+      status: 'pending', // Pending approval from super admin
       ownerId: null,
     });
 
     if (user) {
-      res.status(201).json({
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        gymName: user.gymName,
-        role: user.role,
-        token: generateToken(user._id),
+      // Send notification email to super admin
+      try {
+        await sendEmail({
+          to: process.env.EMAIL_USER,
+          subject: 'New Gym Registration Request',
+          html: `<p>A new gym owner has registered and is awaiting approval:</p>
+                 <ul>
+                   <li><strong>Name:</strong> ${name}</li>
+                   <li><strong>Email:</strong> ${email}</li>
+                   <li><strong>Gym Name:</strong> ${gymName}</li>
+                 </ul>
+                 <p>Log in to your super admin dashboard to approve or reject this request.</p>`
+        });
+      } catch (emailErr) {
+        console.error('Failed to send admin notification email:', emailErr);
+      }
+
+      res.status(202).json({
+        message: 'Registration submitted successfully. Please wait for super admin approval before logging in.',
+        pending: true
       });
     } else {
       res.status(400).json({ message: 'Invalid user data' });
@@ -68,12 +83,23 @@ export const loginUser = async (req, res) => {
     const user = await User.findOne({ email });
 
     if (user && (await user.matchPassword(password))) {
+      if (user.status === 'pending') {
+        return res.status(403).json({ message: 'Your account is currently pending approval by the admin.' });
+      }
+      if (user.status === 'suspended') {
+        return res.status(403).json({ message: 'Your account has been suspended by the admin.' });
+      }
+      if (user.status === 'rejected') {
+        return res.status(403).json({ message: `Your registration was rejected. Reason: ${user.rejectionReason || 'No reason provided.'}` });
+      }
+
       res.json({
         _id: user._id,
         name: user.name,
         email: user.email,
         gymName: user.gymName,
         role: user.role,
+        status: user.status,
         ownerId: user.ownerId,
         token: generateToken(user._id),
       });

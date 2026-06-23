@@ -14,6 +14,12 @@ api.interceptors.request.use(
         config.headers.Authorization = `Bearer ${token}`;
       }
     }
+    
+    // Support God Mode impersonation
+    const impersonateGymId = sessionStorage.getItem('impersonateGymId');
+    if (impersonateGymId) {
+      config.headers['X-Gym-Id'] = impersonateGymId;
+    }
     return config;
   },
   (error) => {

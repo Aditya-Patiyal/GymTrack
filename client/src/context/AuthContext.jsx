@@ -34,10 +34,13 @@ export const AuthProvider = ({ children }) => {
   };
 
   const register = async (name, email, password, gymName) => {
-    const { data } = await api.post('/auth/register', { name, email, password, gymName });
-    sessionStorage.setItem('userInfo', JSON.stringify(data));
-    setUser(data);
-    return data;
+    const response = await api.post('/auth/register', { name, email, password, gymName });
+    if (response.status === 202 && response.data.pending) {
+      return { pending: true, message: response.data.message };
+    }
+    sessionStorage.setItem('userInfo', JSON.stringify(response.data));
+    setUser(response.data);
+    return response.data;
   };
 
   const logout = () => {

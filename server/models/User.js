@@ -17,8 +17,17 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['owner', 'staff'],
+    enum: ['super_admin', 'owner', 'staff'],
     default: 'owner',
+  },
+  status: {
+    type: String,
+    enum: ['pending', 'active', 'suspended', 'rejected'],
+    default: 'active',
+  },
+  rejectionReason: {
+    type: String,
+    default: '',
   },
   ownerId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -38,9 +47,9 @@ userSchema.methods.matchPassword = async function (enteredPassword) {
 };
 
 // Encrypt password before saving
-userSchema.pre('save', async function (next) {
+userSchema.pre('save', async function () {
   if (!this.isModified('password')) {
-    next();
+    return;
   }
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);

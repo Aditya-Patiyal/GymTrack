@@ -11,6 +11,7 @@ import paymentRoutes from './routes/paymentRoutes.js';
 import dashboardRoutes from './routes/dashboardRoutes.js';
 import staffRoutes from './routes/staffRoutes.js';
 import deleteRequestRoutes from './routes/deleteRequestRoutes.js';
+import adminRoutes from './routes/adminRoutes.js';
 
 dotenv.config();
 
@@ -32,6 +33,7 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/staff', staffRoutes);
 app.use('/api/delete-requests', deleteRequestRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Health check route for UptimeRobot to keep server awake
 app.get('/api/ping', (req, res) => {
