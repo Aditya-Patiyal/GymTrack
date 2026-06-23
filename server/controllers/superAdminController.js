@@ -24,20 +24,22 @@ export const approveRegistration = async (req, res) => {
     owner.rejectionReason = '';
     await owner.save();
 
-    // Send email to owner
-    try {
-      await sendEmail({
-        to: owner.email,
-        subject: 'GymPulse Account Approved!',
-        html: `<p>Hi ${owner.name},</p>
-               <p>Your registration for <strong>${owner.gymName}</strong> has been approved by the admin team.</p>
-               <p>You can now log in to your dashboard and start managing your gym.</p>`
-      });
-    } catch (e) {
-      console.error('Email failed to send, but owner approved.');
-    }
-
     res.json({ message: 'Owner approved successfully', owner });
+
+    // Send email asynchronously (non-blocking)
+    setImmediate(async () => {
+      try {
+        await sendEmail({
+          to: owner.email,
+          subject: 'GymPulse Account Approved!',
+          html: `<p>Hi ${owner.name},</p>
+                 <p>Your registration for <strong>${owner.gymName}</strong> has been approved by the admin team.</p>
+                 <p>You can now log in to your dashboard and start managing your gym.</p>`
+        });
+      } catch (e) {
+        console.error('Approval email failed:', e);
+      }
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -57,21 +59,23 @@ export const rejectRegistration = async (req, res) => {
     owner.rejectionReason = reason || 'No reason provided by admin.';
     await owner.save();
 
-    // Send email to owner
-    try {
-      await sendEmail({
-        to: owner.email,
-        subject: 'GymPulse Registration Update',
-        html: `<p>Hi ${owner.name},</p>
-               <p>Unfortunately, your registration for <strong>${owner.gymName}</strong> has been rejected by the admin team.</p>
-               <p><strong>Reason:</strong> ${owner.rejectionReason}</p>
-               <p>If you believe this is a mistake, please contact support.</p>`
-      });
-    } catch (e) {
-      console.error('Email failed to send, but owner rejected.');
-    }
-
     res.json({ message: 'Owner rejected successfully', owner });
+
+    // Send email asynchronously (non-blocking)
+    setImmediate(async () => {
+      try {
+        await sendEmail({
+          to: owner.email,
+          subject: 'GymPulse Registration Update',
+          html: `<p>Hi ${owner.name},</p>
+                 <p>Unfortunately, your registration for <strong>${owner.gymName}</strong> has been rejected by the admin team.</p>
+                 <p><strong>Reason:</strong> ${owner.rejectionReason}</p>
+                 <p>If you believe this is a mistake, please contact support.</p>`
+        });
+      } catch (e) {
+        console.error('Rejection email failed:', e);
+      }
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

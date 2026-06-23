@@ -43,26 +43,29 @@ export const registerUser = async (req, res) => {
     });
 
     if (user) {
-      // Send notification email to super admin
-      try {
-        await sendEmail({
-          to: process.env.EMAIL_USER,
-          subject: 'New Gym Registration Request',
-          html: `<p>A new gym owner has registered and is awaiting approval:</p>
-                 <ul>
-                   <li><strong>Name:</strong> ${name}</li>
-                   <li><strong>Email:</strong> ${email}</li>
-                   <li><strong>Gym Name:</strong> ${gymName}</li>
-                 </ul>
-                 <p>Log in to your super admin dashboard to approve or reject this request.</p>`
-        });
-      } catch (emailErr) {
-        console.error('Failed to send admin notification email:', emailErr);
-      }
-
+      // Respond immediately — don't wait for email
       res.status(202).json({
         message: 'Registration submitted successfully. Please wait for super admin approval before logging in.',
         pending: true
+      });
+
+      // Send notification email to super admin asynchronously (non-blocking)
+      setImmediate(async () => {
+        try {
+          await sendEmail({
+            to: process.env.EMAIL_USER,
+            subject: 'New Gym Registration Request',
+            html: `<p>A new gym owner has registered and is awaiting approval:</p>
+                   <ul>
+                     <li><strong>Name:</strong> ${name}</li>
+                     <li><strong>Email:</strong> ${email}</li>
+                     <li><strong>Gym Name:</strong> ${gymName}</li>
+                   </ul>
+                   <p>Log in to your super admin dashboard to approve or reject this request.</p>`
+          });
+        } catch (emailErr) {
+          console.error('Failed to send admin notification email:', emailErr);
+        }
       });
     } else {
       res.status(400).json({ message: 'Invalid user data' });
