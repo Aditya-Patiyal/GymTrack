@@ -1,56 +1,35 @@
-import nodemailer from 'nodemailer';
-import dotenv from 'dotenv';
-dotenv.config();
+import { Resend } from 'resend';
 
-// Use explicit SMTP settings instead of 'service: gmail'
-// for more reliable behaviour in serverless environments (Vercel)
-const transporter = nodemailer.createTransport({
-  host: 'smtp-relay.brevo.com',
-  port: 587,
-  secure: false,        // use STARTTLS
-  requireTLS: true,
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-  tls: {
-    rejectUnauthorized: false,
-  },
-});
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 /**
- * Sends an email with a 10-second timeout guard.
- * Safe to await in serverless environments — never hangs indefinitely.
+ * Sends an email via Resend HTTP API.
+ * HTTP-based — works 100% on Vercel serverless (no SMTP port restrictions).
  */
 export const sendEmail = async ({ to, subject, html }) => {
-  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-    console.warn('EMAIL_USER or EMAIL_PASS not set — skipping email send.');
+  if (!process.env.RESEND_API_KEY) {
+    console.warn('[sendEmail] RESEND_API_KEY not set — skipping email send.');
     return false;
   }
-  const senderAddress = process.env.SENDER_EMAIL || process.env.EMAIL_USER;
-  console.log(`Sending email via Brevo | from: ${senderAddress} | to: ${to} | subject: ${subject}`);
 
-  const mailOptions = {
-    from: `"GymPulse" <${process.env.SENDER_EMAIL || process.env.EMAIL_USER}>`,
-    to,
-    subject,
-    html,
-  };
+  const from = process.env.SENDER_EMAIL
+    ? `GymPulse <${process.env.SENDER_EMAIL}>`
+    : 'GymPulse <onboarding@resend.dev>';
 
-  // Race the email send against a 10-second timeout
-  const timeoutPromise = new Promise((_, reject) =>
-    setTimeout(() => reject(new Error('Email send timed out after 10s')), 10000)
-  );
+  console.log(`[sendEmail] Sending | from: ${from} | to: ${to} | subject: ${subject}`);
 
   try {
-    const info = await Promise.race([
-      transporter.sendMail(mailOptions),
-      timeoutPromise,
-    ]);
-    console.log('Email sent:', info.response);
+    const { data, error } = await resend.emails.send({ from, to, subject, html });
+
+    if (error) {
+      console.error('[sendEmail] Resend API error:', JSON.stringify(error));
+      return false;
+    }
+
+    console.log('[sendEmail] Sent successfully. ID:', data?.id);
     return true;
-  } catch (error) {
-    console.error('Email failed:', error.message);
+  } catch (err) {
+    console.error('[sendEmail] Unexpected error:', err.message);
     return false;
   }
 };
