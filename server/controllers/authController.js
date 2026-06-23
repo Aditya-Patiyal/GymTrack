@@ -43,7 +43,7 @@ export const registerUser = async (req, res) => {
 
         // Send notification email to super admin
         await sendEmail({
-          to: process.env.EMAIL_USER,
+          to: process.env.SENDER_EMAIL || process.env.EMAIL_USER,
           subject: '🏋️ Re-Registration Request — Action Required',
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f9f9f9; border-radius: 10px; overflow: hidden;">
@@ -117,7 +117,7 @@ export const registerUser = async (req, res) => {
       // Send notification email to super admin BEFORE responding.
       // sendEmail has a built-in 10s timeout — safe to await in serverless.
       await sendEmail({
-        to: process.env.EMAIL_USER,
+        to: process.env.SENDER_EMAIL || process.env.EMAIL_USER,
         subject: '🏋️ New Gym Registration Request — Action Required',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f9f9f9; border-radius: 10px; overflow: hidden;">

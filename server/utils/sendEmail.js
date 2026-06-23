@@ -27,6 +27,8 @@ export const sendEmail = async ({ to, subject, html }) => {
     console.warn('EMAIL_USER or EMAIL_PASS not set — skipping email send.');
     return false;
   }
+  const senderAddress = process.env.SENDER_EMAIL || process.env.EMAIL_USER;
+  console.log(`Sending email via Brevo | from: ${senderAddress} | to: ${to} | subject: ${subject}`);
 
   const mailOptions = {
     from: `"GymPulse" <${process.env.SENDER_EMAIL || process.env.EMAIL_USER}>`,
