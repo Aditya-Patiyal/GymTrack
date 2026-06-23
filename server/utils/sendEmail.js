@@ -29,7 +29,7 @@ export const sendEmail = async ({ to, subject, html }) => {
   }
 
   const mailOptions = {
-    from: `"GymPulse" <${process.env.EMAIL_USER}>`,
+    from: `"GymPulse" <${process.env.SENDER_EMAIL || process.env.EMAIL_USER}>`,
     to,
     subject,
     html,
