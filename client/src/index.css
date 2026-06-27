@@ -1,19 +1,19 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@500;600;700&display=swap');
 
 :root {
-  --bg-primary: #0f0f13;
-  --bg-secondary: #1a1a24;
-  --bg-tertiary: #252532;
-  --accent-primary: #6c5ce7;
-  --accent-primary-hover: #5a4bcf;
-  --accent-secondary: #00cec9;
-  --text-primary: #f0f0f5;
-  --text-secondary: #8b8b9e;
-  --success: #00b894;
-  --warning: #fdcb6e;
-  --danger: #e17055;
-  --inactive: #636e72;
-  --border: #2d2d3f;
+  --bg-primary: #0a0a0a;
+  --bg-secondary: #141414;
+  --bg-tertiary: #1e1e1e;
+  --accent-primary: #e62030;
+  --accent-primary-hover: #c41020;
+  --accent-secondary: #ff4d5e;
+  --text-primary: #f5f5f5;
+  --text-secondary: #888888;
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --danger: #e62030;
+  --inactive: #555555;
+  --border: #2a2a2a;
   --glass: rgba(255, 255, 255, 0.03);
 }
 
@@ -96,12 +96,12 @@ input, select, textarea {
 .btn-primary {
   background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
   color: white;
-  box-shadow: 0 4px 15px rgba(108, 92, 231, 0.3);
+  box-shadow: 0 4px 15px rgba(230, 32, 48, 0.35);
 }
 
 .btn-primary:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(108, 92, 231, 0.4);
+  box-shadow: 0 6px 20px rgba(230, 32, 48, 0.5);
 }
 
 .btn-secondary {
@@ -111,7 +111,7 @@ input, select, textarea {
 }
 
 .btn-secondary:hover {
-  background-color: #2c2c3a;
+  background-color: #282828;
 }
 
 .btn-danger {
@@ -148,7 +148,7 @@ input, select, textarea {
 
 .input-field:focus {
   border-color: var(--accent-primary);
-  box-shadow: 0 0 0 2px rgba(108, 92, 231, 0.2);
+  box-shadow: 0 0 0 2px rgba(230, 32, 48, 0.2);
 }
 
 /* Badges */
@@ -214,7 +214,7 @@ input, select, textarea {
   align-items: center;
   padding: 0 2rem;
   justify-content: space-between;
-  background-color: rgba(26, 26, 36, 0.8);
+  background-color: rgba(14, 14, 14, 0.9);
   backdrop-filter: blur(10px);
   position: sticky;
   top: 0;
@@ -270,7 +270,7 @@ tr:hover td {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: radial-gradient(circle at top right, #2a205a, var(--bg-primary) 50%);
+  background: radial-gradient(circle at top right, #3a0810, var(--bg-primary) 55%);
 }
 
 .auth-card {
