@@ -40,7 +40,7 @@ const ConfirmModal = ({ isOpen, title, message, confirmLabel, danger, onConfirm,
 };
 
 // ─── Bulk Action Toolbar ──────────────────────────────────────────────────────
-const BulkToolbar = ({ count, tab, onApprove, onReject, onSuspend, onReactivate, onDelete, onClear }) => (
+const BulkToolbar = ({ count, tab, onApprove, onReject, onSuspend, onReactivate, onDelete, onClear, canDelete = true }) => (
   <div style={{
     position: 'fixed', bottom: '2rem', left: '50%', transform: 'translateX(-50%)',
     zIndex: 500, background: 'var(--bg-secondary)',
@@ -63,7 +63,17 @@ const BulkToolbar = ({ count, tab, onApprove, onReject, onSuspend, onReactivate,
     {tab === 'owners' && <>
       <button onClick={onSuspend}    style={toolBtn('var(--warning)')}>⏸ Suspend</button>
       <button onClick={onReactivate} style={toolBtn('var(--success)')}>▶ Reactivate</button>
-      <button onClick={onDelete}     style={toolBtn('var(--danger)')}>🗑 Delete</button>
+      {canDelete
+        ? <button onClick={onDelete} style={toolBtn('var(--danger)')}>🗑 Delete</button>
+        : (
+          <span
+            title="Delete is only available when all selected accounts are Suspended first."
+            style={{ ...toolBtn('var(--inactive)'), cursor: 'not-allowed', opacity: 0.4, display: 'inline-flex', alignItems: 'center' }}
+          >
+            🗑 Delete
+          </span>
+        )
+      }
     </>}
 
     <button onClick={onClear} style={{ background: 'none', color: 'var(--text-secondary)', fontSize: '1.1rem', lineHeight: 1, padding: '0.2rem 0.4rem', borderRadius: '4px', cursor: 'pointer' }}>✕</button>
@@ -319,15 +329,23 @@ const SuperAdminDashboard = () => {
           onClear={() => setSelectedReg(new Set())}
         />
       )}
-      {tab === 'owners' && selectedOwner.size > 0 && (
-        <BulkToolbar
-          count={selectedOwner.size} tab="owners"
-          onSuspend={() => openModal('suspend', selectedOwner)}
-          onReactivate={() => openModal('reactivate', selectedOwner)}
-          onDelete={() => openModal('delete', selectedOwner)}
-          onClear={() => setSelectedOwner(new Set())}
-        />
-      )}
+      {tab === 'owners' && selectedOwner.size > 0 && (() => {
+        // Delete is only allowed when EVERY selected owner is suspended
+        const canDelete = [...selectedOwner].every(id => {
+          const owner = owners.find(o => o._id === id);
+          return owner?.status === 'suspended';
+        });
+        return (
+          <BulkToolbar
+            count={selectedOwner.size} tab="owners"
+            canDelete={canDelete}
+            onSuspend={() => openModal('suspend', selectedOwner)}
+            onReactivate={() => openModal('reactivate', selectedOwner)}
+            onDelete={() => openModal('delete', selectedOwner)}
+            onClear={() => setSelectedOwner(new Set())}
+          />
+        );
+      })()}
 
       {/* ── Confirmation Modal ── */}
       <ConfirmModal
