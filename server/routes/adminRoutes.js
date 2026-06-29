@@ -7,6 +7,11 @@ import {
   suspendOwner,
   reactivateOwner,
   getAdminStats,
+  bulkApprove,
+  bulkReject,
+  bulkSuspend,
+  bulkReactivate,
+  bulkDelete,
 } from '../controllers/superAdminController.js';
 import { protect, superAdminOnly } from '../middleware/authMiddleware.js';
 
@@ -26,5 +31,12 @@ router.put('/registrations/:id/reject', rejectRegistration);
 router.get('/owners', getOwners);
 router.put('/owners/:id/suspend', suspendOwner);
 router.put('/owners/:id/reactivate', reactivateOwner);
+
+// Bulk actions
+router.put('/bulk/approve', bulkApprove);
+router.put('/bulk/reject', bulkReject);
+router.put('/bulk/suspend', bulkSuspend);
+router.put('/bulk/reactivate', bulkReactivate);
+router.delete('/bulk/delete', bulkDelete);
 
 export default router;

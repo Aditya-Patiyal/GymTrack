@@ -200,3 +200,77 @@ export const getAdminStats = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+// ─── BULK ACTIONS ─────────────────────────────────────────────────────────────
+
+// PUT /api/admin/bulk/approve
+export const bulkApprove = async (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!ids?.length) return res.status(400).json({ message: 'No IDs provided' });
+    const now = new Date();
+    await User.updateMany(
+      { _id: { $in: ids }, role: 'owner', status: 'pending' },
+      { status: 'active', approvedAt: now, suspendedAt: null, rejectionReason: '' }
+    );
+    res.json({ message: `${ids.length} registration(s) approved` });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// PUT /api/admin/bulk/reject
+export const bulkReject = async (req, res) => {
+  try {
+    const { ids, reason } = req.body;
+    if (!ids?.length) return res.status(400).json({ message: 'No IDs provided' });
+    await User.updateMany(
+      { _id: { $in: ids }, role: 'owner', status: 'pending' },
+      { status: 'rejected', rejectionReason: reason || 'Rejected by admin.' }
+    );
+    res.json({ message: `${ids.length} registration(s) rejected` });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// PUT /api/admin/bulk/suspend
+export const bulkSuspend = async (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!ids?.length) return res.status(400).json({ message: 'No IDs provided' });
+    const now = new Date();
+    await User.updateMany({ _id: { $in: ids }, role: 'owner' }, { status: 'suspended', suspendedAt: now });
+    await User.updateMany({ ownerId: { $in: ids } }, { status: 'suspended' });
+    res.json({ message: `${ids.length} owner(s) suspended` });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// PUT /api/admin/bulk/reactivate
+export const bulkReactivate = async (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!ids?.length) return res.status(400).json({ message: 'No IDs provided' });
+    await User.updateMany({ _id: { $in: ids }, role: 'owner' }, { status: 'active', suspendedAt: null });
+    await User.updateMany({ ownerId: { $in: ids } }, { status: 'active' });
+    res.json({ message: `${ids.length} owner(s) reactivated` });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// DELETE /api/admin/bulk/delete
+export const bulkDelete = async (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!ids?.length) return res.status(400).json({ message: 'No IDs provided' });
+    await User.deleteMany({ ownerId: { $in: ids } });
+    await Member.deleteMany({ createdBy: { $in: ids } });
+    await User.deleteMany({ _id: { $in: ids }, role: 'owner' });
+    res.json({ message: `${ids.length} gym(s) permanently deleted` });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
