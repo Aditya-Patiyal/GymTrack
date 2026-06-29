@@ -4,7 +4,10 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 /**
  * Sends an email via Resend HTTP API.
- * HTTP-based — works 100% on Vercel serverless (no SMTP port restrictions).
+ * HTTP-based — works 100% on Vercel/Render serverless (no SMTP port restrictions).
+ *
+ * IMPORTANT: Resend free tier ONLY allows from: "onboarding@resend.dev".
+ * SENDER_EMAIL is used as the super admin's TO address, NOT as a from address.
  */
 export const sendEmail = async ({ to, subject, html }) => {
   if (!process.env.RESEND_API_KEY) {
@@ -12,9 +15,8 @@ export const sendEmail = async ({ to, subject, html }) => {
     return false;
   }
 
-  const from = process.env.SENDER_EMAIL
-    ? `GymPulse <${process.env.SENDER_EMAIL}>`
-    : 'GymPulse <onboarding@resend.dev>';
+  // Resend free tier requires this exact sender address
+  const from = 'GymPulse <onboarding@resend.dev>';
 
   console.log(`[sendEmail] Sending | from: ${from} | to: ${to} | subject: ${subject}`);
 
