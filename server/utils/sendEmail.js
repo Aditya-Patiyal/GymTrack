@@ -1,37 +1,46 @@
-import { Resend } from 'resend';
-
-const resend = new Resend(process.env.RESEND_API_KEY);
+import nodemailer from 'nodemailer';
 
 /**
- * Sends an email via Resend HTTP API.
- * HTTP-based — works 100% on Vercel/Render serverless (no SMTP port restrictions).
+ * Sends an email via Brevo SMTP relay.
  *
- * IMPORTANT: Resend free tier ONLY allows from: "onboarding@resend.dev".
- * SENDER_EMAIL is used as the super admin's TO address, NOT as a from address.
+ * Uses Nodemailer + Brevo SMTP (smtp-relay.brevo.com:587).
+ * This works on Render (no SMTP port blocking unlike Vercel).
+ * Brevo free tier: 300 emails/day to ANY recipient.
+ *
+ * Required env vars:
+ *   EMAIL_USER   — Brevo SMTP login (e.g. afb009001@smtp-brevo.com)
+ *   EMAIL_PASS   — Brevo SMTP key
+ *   SENDER_EMAIL — The verified "from" address (e.g. aditya.patiyal007@gmail.com)
  */
+
+const createTransporter = () => {
+  return nodemailer.createTransport({
+    host: 'smtp-relay.brevo.com',
+    port: 587,
+    secure: false,
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS,
+    },
+  });
+};
+
 export const sendEmail = async ({ to, subject, html }) => {
-  if (!process.env.RESEND_API_KEY) {
-    console.warn('[sendEmail] RESEND_API_KEY not set — skipping email send.');
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+    console.warn('[sendEmail] EMAIL_USER or EMAIL_PASS not set — skipping.');
     return false;
   }
 
-  // Resend free tier requires this exact sender address
-  const from = 'GymPulse <onboarding@resend.dev>';
-
+  const from = `"GymPulse" <${process.env.SENDER_EMAIL || process.env.EMAIL_USER}>`;
   console.log(`[sendEmail] Sending | from: ${from} | to: ${to} | subject: ${subject}`);
 
   try {
-    const { data, error } = await resend.emails.send({ from, to, subject, html });
-
-    if (error) {
-      console.error('[sendEmail] Resend API error:', JSON.stringify(error));
-      return false;
-    }
-
-    console.log('[sendEmail] Sent successfully. ID:', data?.id);
+    const transporter = createTransporter();
+    const info = await transporter.sendMail({ from, to, subject, html });
+    console.log('[sendEmail] Sent successfully. Response:', info.response);
     return true;
   } catch (err) {
-    console.error('[sendEmail] Unexpected error:', err.message);
+    console.error('[sendEmail] Failed:', err.message);
     return false;
   }
 };

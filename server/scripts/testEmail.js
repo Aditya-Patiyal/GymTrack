@@ -1,25 +1,38 @@
-import { Resend } from 'resend';
+import nodemailer from 'nodemailer';
 import dotenv from 'dotenv';
 dotenv.config();
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+console.log('EMAIL_USER:', process.env.EMAIL_USER);
+console.log('EMAIL_PASS set:', !!process.env.EMAIL_PASS);
+console.log('SENDER_EMAIL:', process.env.SENDER_EMAIL);
 
-// TEST 1: Using the custom SENDER_EMAIL (will likely FAIL)
-console.log('\n=== TEST 1: Sending FROM aditya.patiyal007@gmail.com ===');
-const test1 = await resend.emails.send({
-  from: `GymPulse <${process.env.SENDER_EMAIL}>`,
-  to: ['aditya.patiyal007@gmail.com'],
-  subject: 'TEST 1 — Custom Sender (will likely fail)',
-  html: '<p>This tests sending from your Gmail address.</p>',
+const transporter = nodemailer.createTransport({
+  host: 'smtp-relay.brevo.com',
+  port: 587,
+  secure: false,
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
 });
-console.log('Result:', JSON.stringify(test1, null, 2));
 
-// TEST 2: Using onboarding@resend.dev (should SUCCEED)
-console.log('\n=== TEST 2: Sending FROM onboarding@resend.dev ===');
-const test2 = await resend.emails.send({
-  from: 'GymPulse <onboarding@resend.dev>',
-  to: ['aditya.patiyal007@gmail.com'],
-  subject: 'TEST 2 — GymPulse Email Working! ✅',
-  html: '<h2>It works!</h2><p>If you see this, your email system is functional.</p>',
+console.log('\nVerifying Brevo SMTP connection...');
+try {
+  await transporter.verify();
+  console.log('✅ SMTP connection OK!');
+} catch (err) {
+  console.error('❌ SMTP connection failed:', err.message);
+  process.exit(1);
+}
+
+// Test sending to the admin email
+console.log('\nSending test email to admin...');
+const result = await transporter.sendMail({
+  from: `"GymPulse" <${process.env.SENDER_EMAIL}>`,
+  to: process.env.SENDER_EMAIL,
+  subject: '✅ GymPulse Brevo Test — Admin Notification',
+  html: '<h2>Admin email works!</h2><p>Brevo SMTP is delivering to the super admin address.</p>',
 });
-console.log('Result:', JSON.stringify(test2, null, 2));
+console.log('✅ Admin email sent:', result.response);
+
+process.exit(0);
