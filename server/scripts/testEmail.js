@@ -1,61 +1,51 @@
-import nodemailer from 'nodemailer';
 import dotenv from 'dotenv';
 dotenv.config();
 
 console.log('=== ENVIRONMENT ===');
-console.log('EMAIL_USER:', process.env.EMAIL_USER);
-console.log('EMAIL_PASS set:', !!process.env.EMAIL_PASS);
+console.log('BREVO_API_KEY set:', !!process.env.BREVO_API_KEY);
 console.log('SENDER_EMAIL:', process.env.SENDER_EMAIL);
 console.log('');
 
-const transporter = nodemailer.createTransport({
-  host: 'smtp-relay.brevo.com',
-  port: 587,
-  secure: false,
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
+// TEST 1: Send to admin
+console.log('=== TEST 1: Send to ADMIN ===');
+const r1 = await fetch('https://api.brevo.com/v3/smtp/email', {
+  method: 'POST',
+  headers: {
+    'accept': 'application/json',
+    'content-type': 'application/json',
+    'api-key': process.env.BREVO_API_KEY,
   },
+  body: JSON.stringify({
+    sender: { name: 'GymPulse', email: process.env.SENDER_EMAIL },
+    to: [{ email: 'aditya.patiyal007@gmail.com' }],
+    subject: '✅ TEST — Admin Notification (Brevo HTTP API)',
+    htmlContent: '<h2>Admin email works!</h2><p>Brevo HTTP API is delivering via HTTPS. No SMTP needed.</p>',
+  }),
 });
+const d1 = await r1.json();
+console.log('Status:', r1.status, r1.ok ? '✅' : '❌');
+console.log('Response:', JSON.stringify(d1));
+console.log('');
 
-// Step 1: Verify connection
-console.log('=== STEP 1: Verify SMTP Connection ===');
-try {
-  await transporter.verify();
-  console.log('✅ SMTP connection OK\n');
-} catch (err) {
-  console.error('❌ Connection failed:', err.message);
-  process.exit(1);
-}
+// TEST 2: Send to a different address (simulating owner)
+console.log('=== TEST 2: Send to OWNER (same Gmail for test) ===');
+const r2 = await fetch('https://api.brevo.com/v3/smtp/email', {
+  method: 'POST',
+  headers: {
+    'accept': 'application/json',
+    'content-type': 'application/json',
+    'api-key': process.env.BREVO_API_KEY,
+  },
+  body: JSON.stringify({
+    sender: { name: 'GymPulse', email: process.env.SENDER_EMAIL },
+    to: [{ email: 'aditya.patiyal007@gmail.com' }],
+    subject: '✅ TEST — Owner Approval Email (Brevo HTTP API)',
+    htmlContent: '<h2>Owner approval works!</h2><p>This proves Brevo HTTP API can send to any recipient.</p>',
+  }),
+});
+const d2 = await r2.json();
+console.log('Status:', r2.status, r2.ok ? '✅' : '❌');
+console.log('Response:', JSON.stringify(d2));
+console.log('');
 
-// Step 2: Send to admin (your Gmail)
-console.log('=== STEP 2: Send to ADMIN (aditya.patiyal007@gmail.com) ===');
-try {
-  const r1 = await transporter.sendMail({
-    from: `"GymPulse" <${process.env.SENDER_EMAIL}>`,
-    to: 'aditya.patiyal007@gmail.com',
-    subject: '✅ TEST — Admin Registration Notification',
-    html: '<h2>Admin email works!</h2><p>This simulates the registration notification to super admin.</p>',
-  });
-  console.log('✅ Sent:', r1.response, '\n');
-} catch (err) {
-  console.error('❌ Failed:', err.message, '\n');
-}
-
-// Step 3: Send to a DIFFERENT email (simulating owner approval email)
-// Using the same admin email as the "owner" for testing since we need a real inbox
-console.log('=== STEP 3: Send to OWNER (simulated — also sending to admin for testing) ===');
-try {
-  const r2 = await transporter.sendMail({
-    from: `"GymPulse" <${process.env.SENDER_EMAIL}>`,
-    to: 'aditya.patiyal007@gmail.com',
-    subject: '✅ TEST — Owner Approval Email',
-    html: '<h2>Owner approval email works!</h2><p>This simulates the approval notification sent to a gym owner.</p>',
-  });
-  console.log('✅ Sent:', r2.response, '\n');
-} catch (err) {
-  console.error('❌ Failed:', err.message, '\n');
-}
-
-console.log('=== ALL TESTS COMPLETE ===');
-process.exit(0);
+console.log('=== TESTS COMPLETE ===');
