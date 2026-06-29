@@ -1,46 +1,57 @@
-import nodemailer from 'nodemailer';
-
 /**
- * Sends an email via Brevo SMTP relay.
+ * Sends an email via Brevo HTTP API (REST).
  *
- * Uses Nodemailer + Brevo SMTP (smtp-relay.brevo.com:587).
- * This works on Render (no SMTP port blocking unlike Vercel).
+ * Uses HTTPS (port 443) — works on ALL hosting platforms
+ * including Vercel, Render, Railway, etc. (no SMTP port blocking).
  * Brevo free tier: 300 emails/day to ANY recipient.
  *
  * Required env vars:
- *   EMAIL_USER   — Brevo SMTP login (e.g. afb009001@smtp-brevo.com)
- *   EMAIL_PASS   — Brevo SMTP key
- *   SENDER_EMAIL — The verified "from" address (e.g. aditya.patiyal007@gmail.com)
+ *   BREVO_API_KEY  — Brevo REST API key (starts with xkeysib-...)
+ *   SENDER_EMAIL   — The verified sender address (e.g. aditya.patiyal007@gmail.com)
  */
-
-const createTransporter = () => {
-  return nodemailer.createTransport({
-    host: 'smtp-relay.brevo.com',
-    port: 587,
-    secure: false,
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
-  });
-};
-
 export const sendEmail = async ({ to, subject, html }) => {
-  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-    console.warn('[sendEmail] EMAIL_USER or EMAIL_PASS not set — skipping.');
+  const apiKey = process.env.BREVO_API_KEY;
+  const senderEmail = process.env.SENDER_EMAIL;
+
+  if (!apiKey) {
+    console.error('[sendEmail] BREVO_API_KEY not set — skipping email.');
     return false;
   }
 
-  const from = `"GymPulse" <${process.env.SENDER_EMAIL || process.env.EMAIL_USER}>`;
-  console.log(`[sendEmail] Sending | from: ${from} | to: ${to} | subject: ${subject}`);
+  if (!senderEmail) {
+    console.error('[sendEmail] SENDER_EMAIL not set — skipping email.');
+    return false;
+  }
+
+  console.log(`[sendEmail] Sending via Brevo HTTP API | to: ${to} | subject: ${subject}`);
 
   try {
-    const transporter = createTransporter();
-    const info = await transporter.sendMail({ from, to, subject, html });
-    console.log('[sendEmail] Sent successfully. Response:', info.response);
-    return true;
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'accept': 'application/json',
+        'content-type': 'application/json',
+        'api-key': apiKey,
+      },
+      body: JSON.stringify({
+        sender: { name: 'GymPulse', email: senderEmail },
+        to: [{ email: to }],
+        subject,
+        htmlContent: html,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      console.log('[sendEmail] ✅ Sent successfully. MessageId:', data.messageId);
+      return true;
+    } else {
+      console.error('[sendEmail] ❌ Brevo API error:', response.status, JSON.stringify(data));
+      return false;
+    }
   } catch (err) {
-    console.error('[sendEmail] Failed:', err.message);
+    console.error('[sendEmail] ❌ Unexpected error:', err.message);
     return false;
   }
 };

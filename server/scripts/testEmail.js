@@ -2,9 +2,11 @@ import nodemailer from 'nodemailer';
 import dotenv from 'dotenv';
 dotenv.config();
 
+console.log('=== ENVIRONMENT ===');
 console.log('EMAIL_USER:', process.env.EMAIL_USER);
 console.log('EMAIL_PASS set:', !!process.env.EMAIL_PASS);
 console.log('SENDER_EMAIL:', process.env.SENDER_EMAIL);
+console.log('');
 
 const transporter = nodemailer.createTransport({
   host: 'smtp-relay.brevo.com',
@@ -16,23 +18,44 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-console.log('\nVerifying Brevo SMTP connection...');
+// Step 1: Verify connection
+console.log('=== STEP 1: Verify SMTP Connection ===');
 try {
   await transporter.verify();
-  console.log('✅ SMTP connection OK!');
+  console.log('✅ SMTP connection OK\n');
 } catch (err) {
-  console.error('❌ SMTP connection failed:', err.message);
+  console.error('❌ Connection failed:', err.message);
   process.exit(1);
 }
 
-// Test sending to the admin email
-console.log('\nSending test email to admin...');
-const result = await transporter.sendMail({
-  from: `"GymPulse" <${process.env.SENDER_EMAIL}>`,
-  to: process.env.SENDER_EMAIL,
-  subject: '✅ GymPulse Brevo Test — Admin Notification',
-  html: '<h2>Admin email works!</h2><p>Brevo SMTP is delivering to the super admin address.</p>',
-});
-console.log('✅ Admin email sent:', result.response);
+// Step 2: Send to admin (your Gmail)
+console.log('=== STEP 2: Send to ADMIN (aditya.patiyal007@gmail.com) ===');
+try {
+  const r1 = await transporter.sendMail({
+    from: `"GymPulse" <${process.env.SENDER_EMAIL}>`,
+    to: 'aditya.patiyal007@gmail.com',
+    subject: '✅ TEST — Admin Registration Notification',
+    html: '<h2>Admin email works!</h2><p>This simulates the registration notification to super admin.</p>',
+  });
+  console.log('✅ Sent:', r1.response, '\n');
+} catch (err) {
+  console.error('❌ Failed:', err.message, '\n');
+}
 
+// Step 3: Send to a DIFFERENT email (simulating owner approval email)
+// Using the same admin email as the "owner" for testing since we need a real inbox
+console.log('=== STEP 3: Send to OWNER (simulated — also sending to admin for testing) ===');
+try {
+  const r2 = await transporter.sendMail({
+    from: `"GymPulse" <${process.env.SENDER_EMAIL}>`,
+    to: 'aditya.patiyal007@gmail.com',
+    subject: '✅ TEST — Owner Approval Email',
+    html: '<h2>Owner approval email works!</h2><p>This simulates the approval notification sent to a gym owner.</p>',
+  });
+  console.log('✅ Sent:', r2.response, '\n');
+} catch (err) {
+  console.error('❌ Failed:', err.message, '\n');
+}
+
+console.log('=== ALL TESTS COMPLETE ===');
 process.exit(0);
