@@ -38,7 +38,15 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: false,
     default: '',
-  }
+  },
+  approvedAt: {
+    type: Date,
+    default: null,
+  },
+  suspendedAt: {
+    type: Date,
+    default: null,
+  },
 }, { timestamps: true });
 
 // Match password

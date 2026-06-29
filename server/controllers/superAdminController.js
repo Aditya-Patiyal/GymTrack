@@ -22,6 +22,8 @@ export const approveRegistration = async (req, res) => {
 
     owner.status = 'active';
     owner.rejectionReason = '';
+    owner.approvedAt = new Date();
+    owner.suspendedAt = null;
     await owner.save();
 
     // Send approval email BEFORE responding (has 10s timeout in sendEmail)
@@ -148,6 +150,7 @@ export const suspendOwner = async (req, res) => {
     }
     
     owner.status = 'suspended';
+    owner.suspendedAt = new Date();
     await owner.save();
 
     // Also suspend all their staff (optional, but they are implicitly blocked if we check owner status, 
@@ -169,6 +172,7 @@ export const reactivateOwner = async (req, res) => {
     }
     
     owner.status = 'active';
+    owner.suspendedAt = null;
     await owner.save();
 
     // Reactivate staff
