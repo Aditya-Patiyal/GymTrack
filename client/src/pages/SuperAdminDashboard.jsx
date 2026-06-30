@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 
-// ─── Confirmation Modal ───────────────────────────────────────────────────────
-const ConfirmModal = ({ isOpen, title, message, confirmLabel, danger, onConfirm, onCancel, children }) => {
+// ─── Confirmation Modal ──────────────────────────────────────────────────────
+const ConfirmModal = ({ isOpen, title, message, confirmLabel, danger, onConfirm, onCancel, disabled, children }) => {
   if (!isOpen) return null;
   return (
     <div style={{
@@ -24,12 +24,16 @@ const ConfirmModal = ({ isOpen, title, message, confirmLabel, danger, onConfirm,
           <button className="btn btn-secondary" onClick={onCancel}>Cancel</button>
           <button
             className="btn"
+            disabled={!!disabled}
             style={{
-              background: danger ? 'var(--danger)' : 'var(--success)',
-              color: 'white', padding: '0.6rem 1.4rem', borderRadius: '8px',
-              fontWeight: 600,
+              background: disabled ? 'var(--bg-tertiary)' : danger ? 'var(--danger)' : 'var(--success)',
+              color: disabled ? 'var(--text-secondary)' : 'white',
+              padding: '0.6rem 1.4rem', borderRadius: '8px', fontWeight: 600,
+              cursor: disabled ? 'not-allowed' : 'pointer',
+              opacity: disabled ? 0.6 : 1,
+              transition: 'all 0.2s',
             }}
-            onClick={onConfirm}
+            onClick={disabled ? undefined : onConfirm}
           >
             {confirmLabel}
           </button>
@@ -109,6 +113,7 @@ const SuperAdminDashboard = () => {
   // Modal state
   const [modal, setModal] = useState(null); // { action, ids, reason }
   const [rejectReason, setRejectReason] = useState('');
+  const [suspensionReason, setSuspensionReason] = useState('');
 
   const navigate = useNavigate();
 
@@ -147,9 +152,8 @@ const SuperAdminDashboard = () => {
     catch { toast.error('Failed to reject'); }
   };
   const handleSuspend = async (id) => {
-    if (!window.confirm('Suspend this owner? They will be locked out.')) return;
-    try { await api.put(`/admin/owners/${id}/suspend`); toast.success('Owner suspended'); fetchData(); }
-    catch { toast.error('Failed to suspend'); }
+    setSuspensionReason('');
+    setModal({ action: 'suspend', ids: new Set([id]) });
   };
   const handleReactivate = async (id) => {
     try { await api.put(`/admin/owners/${id}/reactivate`); toast.success('Owner reactivated'); fetchData(); }
@@ -168,18 +172,30 @@ const SuperAdminDashboard = () => {
     const { action, ids, reason } = modal;
     setModal(null);
     try {
-      if (action === 'approve')    await api.put('/admin/bulk/approve',     { ids: [...ids] });
-      if (action === 'reject')     await api.put('/admin/bulk/reject',      { ids: [...ids], reason });
-      if (action === 'suspend')    await api.put('/admin/bulk/suspend',     { ids: [...ids] });
-      if (action === 'reactivate') await api.put('/admin/bulk/reactivate',  { ids: [...ids] });
-      if (action === 'delete')     await api.delete('/admin/bulk/delete',   { data: { ids: [...ids] } });
-      toast.success(`Bulk ${action} completed`);
+      if (action === 'approve')    await api.put('/admin/bulk/approve',    { ids: [...ids] });
+      if (action === 'reject')     await api.put('/admin/bulk/reject',     { ids: [...ids], reason });
+      if (action === 'suspend') {
+        if (ids.size === 1) {
+          // Single-row suspend goes to single endpoint
+          const [id] = [...ids];
+          await api.put(`/admin/owners/${id}/suspend`, { reason });
+        } else {
+          await api.put('/admin/bulk/suspend', { ids: [...ids], reason });
+        }
+      }
+      if (action === 'reactivate') await api.put('/admin/bulk/reactivate', { ids: [...ids] });
+      if (action === 'delete')     await api.delete('/admin/bulk/delete',  { data: { ids: [...ids] } });
+      toast.success(`${action.charAt(0).toUpperCase() + action.slice(1)} completed`);
       setSelectedReg(new Set()); setSelectedOwner(new Set());
       fetchData();
-    } catch { toast.error(`Bulk ${action} failed`); }
+    } catch (err) { toast.error(err?.response?.data?.message || `${action} failed`); }
   };
 
-  const openModal = (action, ids) => { setRejectReason(''); setModal({ action, ids }); };
+  const openModal = (action, ids) => {
+    setRejectReason('');
+    setSuspensionReason('');
+    setModal({ action, ids });
+  };
 
   // ── Helpers ───────────────────────────────────────────────────────────────
   const fmtDate = (d) => d
@@ -350,6 +366,7 @@ const SuperAdminDashboard = () => {
       {/* ── Confirmation Modal ── */}
       <ConfirmModal
         isOpen={!!modal}
+        disabled={modal?.action === 'suspend' && !suspensionReason.trim()}
         title={
           modal?.action === 'approve'    ? `Approve ${modal.ids.size} Registration(s)` :
           modal?.action === 'reject'     ? `Reject ${modal.ids.size} Registration(s)` :
@@ -389,6 +406,28 @@ const SuperAdminDashboard = () => {
               fontFamily: 'inherit', fontSize: '0.9rem',
             }}
           />
+        )}
+        {modal?.action === 'suspend' && (
+          <>
+            <textarea
+              value={suspensionReason}
+              onChange={e => { setSuspensionReason(e.target.value); setModal(m => ({ ...m, reason: e.target.value })); }}
+              placeholder="Enter reason for suspension (required)…"
+              rows={3}
+              style={{
+                width: '100%', marginBottom: '0.5rem', padding: '0.75rem',
+                background: 'var(--bg-tertiary)',
+                border: `1px solid ${suspensionReason.trim() ? 'var(--border)' : 'var(--danger)'}`,
+                borderRadius: '8px', color: 'var(--text-primary)', resize: 'vertical',
+                fontFamily: 'inherit', fontSize: '0.9rem',
+              }}
+            />
+            {!suspensionReason.trim() && (
+              <p style={{ color: 'var(--danger)', fontSize: '0.8rem', margin: '0 0 1rem' }}>
+                ⚠️ A reason is required before you can suspend.
+              </p>
+            )}
+          </>
         )}
       </ConfirmModal>
 

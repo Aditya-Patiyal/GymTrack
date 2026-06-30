@@ -144,18 +144,51 @@ export const getOwners = async (req, res) => {
 // PUT /api/admin/owners/:id/suspend
 export const suspendOwner = async (req, res) => {
   try {
+    const { reason } = req.body;
+    if (!reason?.trim()) {
+      return res.status(400).json({ message: 'A reason for suspension is required.' });
+    }
+
     const owner = await User.findById(req.params.id);
     if (!owner || owner.role !== 'owner') {
       return res.status(404).json({ message: 'Owner not found' });
     }
-    
+
     owner.status = 'suspended';
     owner.suspendedAt = new Date();
+    owner.suspensionReason = reason.trim();
     await owner.save();
 
-    // Also suspend all their staff (optional, but they are implicitly blocked if we check owner status, 
-    // but easier to just let authMiddleware check staff's own status)
     await User.updateMany({ ownerId: owner._id }, { status: 'suspended' });
+
+    // Send suspension notification email
+    await sendEmail({
+      to: owner.email,
+      subject: '⚠️ Your GymPulse Account Has Been Suspended',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f9f9f9; border-radius: 10px; overflow: hidden;">
+          <div style="background: linear-gradient(135deg, #1a1a1a, #2d2d2d); padding: 30px; text-align: center;">
+            <h1 style="color: white; margin: 0; font-size: 24px;">GymPulse</h1>
+            <p style="color: rgba(255,255,255,0.6); margin: 8px 0 0;">Account Suspension Notice</p>
+          </div>
+          <div style="padding: 30px; background: white;">
+            <h2 style="color: #333; margin-top: 0;">Hi ${owner.name},</h2>
+            <p style="color: #555; line-height: 1.6;">
+              We're writing to inform you that your gym <strong>${owner.gymName}</strong> on GymPulse has been <strong style="color: #e62030;">suspended</strong> by the platform administrator.
+            </p>
+            <div style="background: #fff3f3; border-left: 4px solid #e62030; padding: 16px; border-radius: 4px; margin: 20px 0;">
+              <strong style="color: #c0392b;">Reason for Suspension:</strong>
+              <p style="color: #555; margin: 8px 0 0;">${reason.trim()}</p>
+            </div>
+            <p style="color: #555;">During the suspension period, you and your staff will not be able to log in to the platform.</p>
+            <p style="color: #555;">If you believe this is a mistake or wish to appeal, please contact support and reference your gym name: <strong>${owner.gymName}</strong>.</p>
+          </div>
+          <div style="padding: 20px; text-align: center; background: #f9f9f9; color: #aaa; font-size: 12px;">
+            GymPulse Platform · This is an automated notification.
+          </div>
+        </div>
+      `
+    });
 
     res.json({ message: 'Owner and associated staff suspended', owner });
   } catch (error) {
@@ -237,11 +270,53 @@ export const bulkReject = async (req, res) => {
 // PUT /api/admin/bulk/suspend
 export const bulkSuspend = async (req, res) => {
   try {
-    const { ids } = req.body;
+    const { ids, reason } = req.body;
     if (!ids?.length) return res.status(400).json({ message: 'No IDs provided' });
+    if (!reason?.trim()) return res.status(400).json({ message: 'A reason for suspension is required.' });
+
     const now = new Date();
-    await User.updateMany({ _id: { $in: ids }, role: 'owner' }, { status: 'suspended', suspendedAt: now });
+    const trimmedReason = reason.trim();
+
+    // Fetch owners to send emails
+    const ownerDocs = await User.find({ _id: { $in: ids }, role: 'owner' });
+
+    // Update all owners
+    await User.updateMany(
+      { _id: { $in: ids }, role: 'owner' },
+      { status: 'suspended', suspendedAt: now, suspensionReason: trimmedReason }
+    );
     await User.updateMany({ ownerId: { $in: ids } }, { status: 'suspended' });
+
+    // Send emails in parallel (non-blocking for response speed)
+    await Promise.allSettled(ownerDocs.map(owner =>
+      sendEmail({
+        to: owner.email,
+        subject: '\u26a0\ufe0f Your GymPulse Account Has Been Suspended',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f9f9f9; border-radius: 10px; overflow: hidden;">
+            <div style="background: linear-gradient(135deg, #1a1a1a, #2d2d2d); padding: 30px; text-align: center;">
+              <h1 style="color: white; margin: 0; font-size: 24px;">GymPulse</h1>
+              <p style="color: rgba(255,255,255,0.6); margin: 8px 0 0;">Account Suspension Notice</p>
+            </div>
+            <div style="padding: 30px; background: white;">
+              <h2 style="color: #333; margin-top: 0;">Hi ${owner.name},</h2>
+              <p style="color: #555; line-height: 1.6;">
+                Your gym <strong>${owner.gymName}</strong> on GymPulse has been <strong style="color: #e62030;">suspended</strong> by the platform administrator.
+              </p>
+              <div style="background: #fff3f3; border-left: 4px solid #e62030; padding: 16px; border-radius: 4px; margin: 20px 0;">
+                <strong style="color: #c0392b;">Reason for Suspension:</strong>
+                <p style="color: #555; margin: 8px 0 0;">${trimmedReason}</p>
+              </div>
+              <p style="color: #555;">During the suspension period, you and your staff will not be able to log in. If you believe this is a mistake, please contact support and reference: <strong>${owner.gymName}</strong>.</p>
+            </div>
+            <div style="padding: 20px; text-align: center; background: #f9f9f9; color: #aaa; font-size: 12px;">
+              GymPulse Platform · Automated notification.
+            </div>
+          </div>
+        `
+      })
+    ));
+
     res.json({ message: `${ids.length} owner(s) suspended` });
   } catch (error) {
     res.status(500).json({ message: error.message });

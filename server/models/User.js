@@ -47,6 +47,10 @@ const userSchema = new mongoose.Schema({
     type: Date,
     default: null,
   },
+  suspensionReason: {
+    type: String,
+    default: '',
+  },
 }, { timestamps: true });
 
 // Match password
