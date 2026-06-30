@@ -203,13 +203,45 @@ export const reactivateOwner = async (req, res) => {
     if (!owner || owner.role !== 'owner') {
       return res.status(404).json({ message: 'Owner not found' });
     }
-    
+
     owner.status = 'active';
     owner.suspendedAt = null;
+    owner.suspensionReason = '';
     await owner.save();
 
     // Reactivate staff
     await User.updateMany({ ownerId: owner._id }, { status: 'active' });
+
+    // Send reactivation notification email
+    await sendEmail({
+      to: owner.email,
+      subject: '\u2705 Your GymPulse Account Has Been Reactivated!',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f9f9f9; border-radius: 10px; overflow: hidden;">
+          <div style="background: linear-gradient(135deg, #1a6b3a, #27ae60); padding: 30px; text-align: center;">
+            <h1 style="color: white; margin: 0; font-size: 24px;">GymPulse</h1>
+            <p style="color: rgba(255,255,255,0.85); margin: 8px 0 0;">Account Reactivated ✅</p>
+          </div>
+          <div style="padding: 30px; background: white;">
+            <h2 style="color: #333; margin-top: 0;">Great news, ${owner.name}! 🎉</h2>
+            <p style="color: #555; line-height: 1.6;">
+              Your gym <strong>${owner.gymName}</strong> on GymPulse has been <strong style="color: #27ae60;">reactivated</strong> by the platform administrator.
+              Your account is fully active again and you can resume all operations immediately.
+            </p>
+            <p style="color: #555;">You and your staff can now log back in to the platform:</p>
+            <div style="text-align: center; margin-top: 30px;">
+              <a href="https://gym-track-phi.vercel.app/login"
+                 style="background: linear-gradient(135deg, #1a6b3a, #27ae60); color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 16px; display: inline-block;">
+                \uD83D\uDD11 Login to Your Dashboard
+              </a>
+            </div>
+          </div>
+          <div style="padding: 20px; text-align: center; background: #f9f9f9; color: #aaa; font-size: 12px;">
+            GymPulse Platform &middot; This is an automated notification.
+          </div>
+        </div>
+      `
+    });
 
     res.json({ message: 'Owner and associated staff reactivated', owner });
   } catch (error) {
@@ -328,8 +360,45 @@ export const bulkReactivate = async (req, res) => {
   try {
     const { ids } = req.body;
     if (!ids?.length) return res.status(400).json({ message: 'No IDs provided' });
-    await User.updateMany({ _id: { $in: ids }, role: 'owner' }, { status: 'active', suspendedAt: null });
+
+    // Fetch owners before updating so we have their email/name for notifications
+    const ownerDocs = await User.find({ _id: { $in: ids }, role: 'owner' });
+
+    await User.updateMany({ _id: { $in: ids }, role: 'owner' }, { status: 'active', suspendedAt: null, suspensionReason: '' });
     await User.updateMany({ ownerId: { $in: ids } }, { status: 'active' });
+
+    // Send reactivation emails in parallel
+    await Promise.allSettled(ownerDocs.map(owner =>
+      sendEmail({
+        to: owner.email,
+        subject: '\u2705 Your GymPulse Account Has Been Reactivated!',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f9f9f9; border-radius: 10px; overflow: hidden;">
+            <div style="background: linear-gradient(135deg, #1a6b3a, #27ae60); padding: 30px; text-align: center;">
+              <h1 style="color: white; margin: 0; font-size: 24px;">GymPulse</h1>
+              <p style="color: rgba(255,255,255,0.85); margin: 8px 0 0;">Account Reactivated \u2705</p>
+            </div>
+            <div style="padding: 30px; background: white;">
+              <h2 style="color: #333; margin-top: 0;">Great news, ${owner.name}! \uD83C\uDF89</h2>
+              <p style="color: #555; line-height: 1.6;">
+                Your gym <strong>${owner.gymName}</strong> on GymPulse has been <strong style="color: #27ae60;">reactivated</strong> by the platform administrator.
+                Your account is fully active again and you can resume all operations immediately.
+              </p>
+              <div style="text-align: center; margin-top: 30px;">
+                <a href="https://gym-track-phi.vercel.app/login"
+                   style="background: linear-gradient(135deg, #1a6b3a, #27ae60); color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 16px; display: inline-block;">
+                  \uD83D\uDD11 Login to Your Dashboard
+                </a>
+              </div>
+            </div>
+            <div style="padding: 20px; text-align: center; background: #f9f9f9; color: #aaa; font-size: 12px;">
+              GymPulse Platform &middot; Automated notification.
+            </div>
+          </div>
+        `
+      })
+    ));
+
     res.json({ message: `${ids.length} owner(s) reactivated` });
   } catch (error) {
     res.status(500).json({ message: error.message });
