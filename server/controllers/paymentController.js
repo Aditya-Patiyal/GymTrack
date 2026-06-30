@@ -55,3 +55,16 @@ export const markAsPaid = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+// GET /payments/member/:memberId — Full transaction history for a specific member
+export const getPaymentsByMember = async (req, res) => {
+  try {
+    const payments = await Payment.find({ member: req.params.memberId })
+      .populate('membership', 'planLabel')
+      .populate('markedPaidBy', 'name role')
+      .sort({ createdAt: -1 });
+    res.json(payments);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
