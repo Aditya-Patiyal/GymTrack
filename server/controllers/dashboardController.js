@@ -70,7 +70,7 @@ export const getDashboardStats = async (req, res) => {
 
     for (let payment of pendingPayments) {
       const memberDetails = members.find(m => m._id.toString() === payment.member.toString());
-      if (memberDetails && memberDetails.isActive && memberDetails.memberStatus === 'active') {
+      if (memberDetails && memberDetails.isActive && memberDetails.memberStatus !== 'inactive') {
         const startedText = payment.membership && payment.membership.startDate
           ? `(Started: ${new Date(payment.membership.startDate).toLocaleDateString()})`
           : '';
