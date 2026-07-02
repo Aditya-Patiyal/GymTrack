@@ -258,7 +258,7 @@ export const getAdminStats = async (req, res) => {
     // Only count members that belong to currently active gym owners
     const activeOwners = await User.find({ role: 'owner', status: 'active' }).select('_id');
     const activeOwnerIds = activeOwners.map(o => o._id);
-    const totalMembers = await Member.countDocuments({ createdBy: { $in: activeOwnerIds } });
+    const totalMembers = await Member.countDocuments({ createdBy: { $in: activeOwnerIds }, isActive: true });
 
     res.json({
       totalGyms,
