@@ -43,6 +43,10 @@ const MembersPage = () => {
   const [renewModal, setRenewModal] = useState({ show: false, memberId: null, memberName: '' });
   const [renewPlanData, setRenewPlanData] = useState({ plan: '1_month', startDate: new Date().toISOString().split('T')[0] });
 
+  // Modal State for Reactivate Member (owner/staff opens plan modal)
+  const [reactivateModal, setReactivateModal] = useState({ show: false, memberId: null, memberName: '' });
+  const [reactivatePlanData, setReactivatePlanData] = useState({ plan: '1_month', startDate: new Date().toISOString().split('T')[0] });
+
   // Delete Request Modal (staff only)
   const [deleteRequestModal, setDeleteRequestModal] = useState({ show: false, memberId: null, memberName: '', reason: '', type: 'delete' });
 
@@ -126,13 +130,33 @@ const MembersPage = () => {
     }
   };
 
-  const handleReactivate = async (id) => {
+  // Opens the reactivation modal (both owner and staff can do this)
+  const handleReactivate = (member) => {
+    setReactivatePlanData({ plan: '1_month', startDate: new Date().toISOString().split('T')[0] });
+    setReactivateModal({ show: true, memberId: member._id, memberName: member.name });
+  };
+
+  // Submits: 1) flip memberStatus back to active, 2) create new membership plan
+  const handleReactivateSubmit = async (e) => {
+    e.preventDefault();
+    const prices = { '1_month': 2500, '2_month': 4000, '4_month': 7000, 'yearly': 20000 };
+    const labels = { '1_month': '1 Month', '2_month': '2 Months', '4_month': '4 Months', 'yearly': 'Yearly' };
     try {
-      await api.put(`/members/${id}/reactivate`);
-      toast.success('Member reactivated!');
+      // Step 1: lift the hold
+      await api.put(`/members/${reactivateModal.memberId}/reactivate`);
+      // Step 2: assign new membership plan (records collectedBy = logged-in user)
+      await api.post('/memberships', {
+        memberId: reactivateModal.memberId,
+        plan: reactivatePlanData.plan,
+        planLabel: labels[reactivatePlanData.plan],
+        price: prices[reactivatePlanData.plan],
+        startDate: reactivatePlanData.startDate,
+      });
+      toast.success(`${reactivateModal.memberName} reactivated with new plan!`);
+      setReactivateModal({ show: false, memberId: null, memberName: '' });
       fetchMembers();
     } catch (error) {
-      toast.error('Failed to reactivate member');
+      toast.error(error.response?.data?.message || 'Failed to reactivate member');
     }
   };
 
@@ -239,73 +263,90 @@ const MembersPage = () => {
                     </span>
                   </td>
                   <td>
-                    {member.isActive && (
-                      <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <button
-                          className="btn-primary"
-                          style={{ padding: '0.4rem 0.6rem', borderRadius: '6px', fontSize: '0.85rem' }}
-                          onClick={() => setRenewModal({ show: true, memberId: member._id, memberName: member.name })}
-                        >
-                          Renew
-                        </button>
-                        <button
-                          className="btn-secondary"
-                          style={{ padding: '0.4rem 0.6rem', borderRadius: '6px', fontSize: '0.85rem' }}
-                          onClick={() => navigate(`/members/${member._id}`)}
-                        >
-                          Details
-                        </button>
-                        {isOwner ? (
-                          <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
-                            {!member.isActive ? (
-                              // Member is inactive — show Reactivate button
-                              <button
-                                style={{ padding: '0.4rem 0.7rem', borderRadius: '6px', fontSize: '0.82rem', background: 'rgba(34,197,94,0.12)', color: 'var(--success)', border: '1px solid var(--success)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
-                                onClick={() => handleReactivate(member._id)}
-                                title="Reactivate Member"
-                              >
-                                <FiUserCheck /> Reactivate
-                              </button>
-                            ) : (
-                              // Member is active — show Set Inactive button
-                              <button
-                                style={{ padding: '0.4rem 0.7rem', borderRadius: '6px', fontSize: '0.82rem', background: 'rgba(245,158,11,0.12)', color: 'var(--warning)', border: '1px solid var(--warning)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
-                                onClick={() => handleSetInactive(member._id)}
-                                title="Set Inactive"
-                              >
-                                <FiUserX /> Inactive
-                              </button>
-                            )}
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      {/* Details — always available */}
+                      <button
+                        className="btn-secondary"
+                        style={{ padding: '0.4rem 0.6rem', borderRadius: '6px', fontSize: '0.85rem' }}
+                        onClick={() => navigate(`/members/${member._id}`)}
+                      >
+                        Details
+                      </button>
+
+                      {member.memberStatus === 'inactive' ? (
+                        /* ── ON HOLD MEMBER ── */
+                        <>
+                          {/* Anyone can initiate reactivation */}
+                          <button
+                            style={{ padding: '0.4rem 0.7rem', borderRadius: '6px', fontSize: '0.82rem', background: 'rgba(34,197,94,0.12)', color: 'var(--success)', border: '1px solid var(--success)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                            onClick={() => handleReactivate(member)}
+                            title="Reactivate Member"
+                          >
+                            <FiUserCheck /> Reactivate
+                          </button>
+                          {/* Only owner can permanently delete */}
+                          {isOwner && (
                             <button
                               className="btn-danger"
                               style={{ padding: '0.4rem 0.6rem', borderRadius: '6px', fontSize: '0.85rem' }}
                               onClick={() => handleDeactivate(member._id)}
-                              title="Permanently Delete Member"
+                              title="Permanently Delete"
                             >
                               <FiTrash2 />
                             </button>
-                          </div>
-                        ) : (
-                          // Staff: can raise inactive or delete request
-                          <div style={{ display: 'flex', gap: '0.4rem' }}>
-                            <button
-                              style={{ padding: '0.4rem 0.7rem', borderRadius: '6px', fontSize: '0.82rem', background: 'rgba(245,158,11,0.12)', color: 'var(--warning)', border: '1px solid var(--warning)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
-                              onClick={() => setDeleteRequestModal({ show: true, memberId: member._id, memberName: member.name, reason: '', type: 'inactive' })}
-                              title="Request Inactive Status"
-                            >
-                              <FiUserX />
-                            </button>
-                            <button
-                              style={{ padding: '0.4rem 0.6rem', borderRadius: '6px', fontSize: '0.85rem', background: 'rgba(239,68,68,0.1)', color: 'var(--danger)', border: '1px solid var(--danger)', cursor: 'pointer' }}
-                              onClick={() => setDeleteRequestModal({ show: true, memberId: member._id, memberName: member.name, reason: '', type: 'delete' })}
-                              title="Request Deletion"
-                            >
-                              <FiAlertOctagon />
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    )}
+                          )}
+                        </>
+                      ) : (
+                        /* ── ACTIVE MEMBER ── */
+                        <>
+                          <button
+                            className="btn-primary"
+                            style={{ padding: '0.4rem 0.6rem', borderRadius: '6px', fontSize: '0.85rem' }}
+                            onClick={() => setRenewModal({ show: true, memberId: member._id, memberName: member.name })}
+                          >
+                            Renew
+                          </button>
+
+                          {isOwner ? (
+                            <div style={{ display: 'flex', gap: '0.4rem' }}>
+                              <button
+                                style={{ padding: '0.4rem 0.7rem', borderRadius: '6px', fontSize: '0.82rem', background: 'rgba(245,158,11,0.12)', color: 'var(--warning)', border: '1px solid var(--warning)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                                onClick={() => handleSetInactive(member._id)}
+                                title="Put on Hold"
+                              >
+                                <FiUserX /> Hold
+                              </button>
+                              <button
+                                className="btn-danger"
+                                style={{ padding: '0.4rem 0.6rem', borderRadius: '6px', fontSize: '0.85rem' }}
+                                onClick={() => handleDeactivate(member._id)}
+                                title="Permanently Delete"
+                              >
+                                <FiTrash2 />
+                              </button>
+                            </div>
+                          ) : (
+                            // Staff: can only raise requests
+                            <div style={{ display: 'flex', gap: '0.4rem' }}>
+                              <button
+                                style={{ padding: '0.4rem 0.7rem', borderRadius: '6px', fontSize: '0.82rem', background: 'rgba(245,158,11,0.12)', color: 'var(--warning)', border: '1px solid var(--warning)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                                onClick={() => setDeleteRequestModal({ show: true, memberId: member._id, memberName: member.name, reason: '', type: 'inactive' })}
+                                title="Request: Put on Hold"
+                              >
+                                <FiUserX />
+                              </button>
+                              <button
+                                style={{ padding: '0.4rem 0.6rem', borderRadius: '6px', fontSize: '0.85rem', background: 'rgba(239,68,68,0.1)', color: 'var(--danger)', border: '1px solid var(--danger)', cursor: 'pointer' }}
+                                onClick={() => setDeleteRequestModal({ show: true, memberId: member._id, memberName: member.name, reason: '', type: 'delete' })}
+                                title="Request Deletion"
+                              >
+                                <FiAlertOctagon />
+                              </button>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -391,6 +432,51 @@ const MembersPage = () => {
               <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
                 <button type="button" className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setRenewModal({ show: false, memberId: null, memberName: '' })}>Cancel</button>
                 <button type="submit" className="btn btn-primary" style={{ flex: 1, backgroundColor: 'var(--success)' }}>Confirm Renew</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Reactivate Member Modal — opens with membership plan form */}
+      {reactivateModal.show && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
+          <div className="card" style={{ width: '100%', maxWidth: '440px' }}>
+            <h2 style={{ marginBottom: '0.25rem' }}>Reactivate Member</h2>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem', fontSize: '0.9rem' }}>
+              Lifting hold for <strong>{reactivateModal.memberName}</strong>. Assign a new membership plan to resume their account.
+            </p>
+            <form onSubmit={handleReactivateSubmit}>
+              <div className="input-group">
+                <label>Plan Duration</label>
+                <select
+                  className="input-field"
+                  value={reactivatePlanData.plan}
+                  onChange={e => setReactivatePlanData({ ...reactivatePlanData, plan: e.target.value })}
+                >
+                  <option value="1_month">1 Month (₹2500)</option>
+                  <option value="2_month">2 Months (₹4000)</option>
+                  <option value="4_month">4 Months (₹7000)</option>
+                  <option value="yearly">Yearly (₹20000)</option>
+                </select>
+              </div>
+              <div className="input-group">
+                <label>Start Date</label>
+                <input
+                  type="date"
+                  className="input-field"
+                  required
+                  value={reactivatePlanData.startDate}
+                  onChange={e => setReactivatePlanData({ ...reactivatePlanData, startDate: e.target.value })}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
+                <button type="button" className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setReactivateModal({ show: false, memberId: null, memberName: '' })}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary" style={{ flex: 1, backgroundColor: 'var(--success)' }}>
+                  ✅ Confirm Reactivation
+                </button>
               </div>
             </form>
           </div>

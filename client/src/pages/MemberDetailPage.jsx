@@ -78,9 +78,22 @@ const MemberDetailPage = () => {
               <FiUser />
             </div>
             <h2 style={{ marginBottom: '0.5rem' }}>{member.name}</h2>
-            <span className={`badge badge-${member.isActive ? 'active' : 'inactive'}`}>
-              {member.isActive ? '🟢 Active Account' : '⚫ Inactive Account'}
-            </span>
+            {member.memberStatus === 'inactive' ? (
+              <div>
+                <span className="badge badge-inactive" style={{ background: 'rgba(245,158,11,0.15)', color: 'var(--warning)', border: '1px solid var(--warning)' }}>
+                  ⏸️ On Hold
+                </span>
+                {member.inactiveSince && (
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.4rem' }}>
+                    Since {new Date(member.inactiveSince).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <span className={`badge badge-${member.isActive ? 'active' : 'inactive'}`}>
+                {member.isActive ? '🟢 Active Account' : '⚫ Deactivated'}
+              </span>
+            )}
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
