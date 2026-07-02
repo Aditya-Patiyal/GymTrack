@@ -1,6 +1,6 @@
 import { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiSearch, FiPlus, FiTrash2, FiAlertOctagon } from 'react-icons/fi';
+import { FiSearch, FiPlus, FiTrash2, FiAlertOctagon, FiUserX, FiUserCheck } from 'react-icons/fi';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 import { AuthContext } from '../context/AuthContext';
@@ -44,7 +44,7 @@ const MembersPage = () => {
   const [renewPlanData, setRenewPlanData] = useState({ plan: '1_month', startDate: new Date().toISOString().split('T')[0] });
 
   // Delete Request Modal (staff only)
-  const [deleteRequestModal, setDeleteRequestModal] = useState({ show: false, memberId: null, memberName: '', reason: '' });
+  const [deleteRequestModal, setDeleteRequestModal] = useState({ show: false, memberId: null, memberName: '', reason: '', type: 'delete' });
 
   const handleAddMember = async (e) => {
     e.preventDefault();
@@ -114,15 +114,39 @@ const MembersPage = () => {
     }
   };
 
+  const handleSetInactive = async (id) => {
+    if (window.confirm('Set this member as inactive? Their data will be preserved.')) {
+      try {
+        await api.put(`/members/${id}/set-inactive`);
+        toast.success('Member set to inactive');
+        fetchMembers();
+      } catch (error) {
+        toast.error('Failed to set member inactive');
+      }
+    }
+  };
+
+  const handleReactivate = async (id) => {
+    try {
+      await api.put(`/members/${id}/reactivate`);
+      toast.success('Member reactivated!');
+      fetchMembers();
+    } catch (error) {
+      toast.error('Failed to reactivate member');
+    }
+  };
+
   const handleDeleteRequest = async (e) => {
     e.preventDefault();
     try {
       await api.post('/delete-requests', {
         memberId: deleteRequestModal.memberId,
         reason: deleteRequestModal.reason,
+        type: deleteRequestModal.type || 'delete',
       });
-      toast.success('Delete request sent to owner');
-      setDeleteRequestModal({ show: false, memberId: null, memberName: '', reason: '' });
+      const label = deleteRequestModal.type === 'inactive' ? 'Inactive request' : 'Delete request';
+      toast.success(`${label} sent to owner`);
+      setDeleteRequestModal({ show: false, memberId: null, memberName: '', reason: '', type: 'delete' });
     } catch (error) {
       toast.error(error.response?.data?.message || 'Error sending request');
     }
@@ -151,14 +175,20 @@ const MembersPage = () => {
             />
           </div>
           <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto' }}>
-            {['all', 'active', 'expiring', 'expired', 'inactive'].map(f => (
+            {[
+              { key: 'all', label: 'All' },
+              { key: 'active', label: '🟢 Active' },
+              { key: 'expiring', label: '🟡 Expiring' },
+              { key: 'expired', label: '🔴 Expired' },
+              { key: 'inactive-member', label: '⚫ Inactive' },
+            ].map(f => (
               <button
-                key={f}
-                className={filter === f ? 'btn-primary' : 'btn-secondary'}
-                style={{ padding: '0.5rem 1rem', borderRadius: '8px', textTransform: 'capitalize' }}
-                onClick={() => setFilter(f)}
+                key={f.key}
+                className={filter === f.key ? 'btn-primary' : 'btn-secondary'}
+                style={{ padding: '0.5rem 1rem', borderRadius: '8px' }}
+                onClick={() => setFilter(f.key)}
               >
-                {f}
+                {f.label}
               </button>
             ))}
           </div>
@@ -226,25 +256,53 @@ const MembersPage = () => {
                           Details
                         </button>
                         {isOwner ? (
-                          <button
-                            className="btn-danger"
-                            style={{ padding: '0.4rem 0.6rem', borderRadius: '6px', fontSize: '0.85rem' }}
-                            onClick={() => handleDeactivate(member._id)}
-                            title="Deactivate Member"
-                          >
-                            <FiTrash2 />
-                          </button>
+                          <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                            {!member.isActive ? (
+                              // Member is inactive — show Reactivate button
+                              <button
+                                style={{ padding: '0.4rem 0.7rem', borderRadius: '6px', fontSize: '0.82rem', background: 'rgba(34,197,94,0.12)', color: 'var(--success)', border: '1px solid var(--success)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                                onClick={() => handleReactivate(member._id)}
+                                title="Reactivate Member"
+                              >
+                                <FiUserCheck /> Reactivate
+                              </button>
+                            ) : (
+                              // Member is active — show Set Inactive button
+                              <button
+                                style={{ padding: '0.4rem 0.7rem', borderRadius: '6px', fontSize: '0.82rem', background: 'rgba(245,158,11,0.12)', color: 'var(--warning)', border: '1px solid var(--warning)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                                onClick={() => handleSetInactive(member._id)}
+                                title="Set Inactive"
+                              >
+                                <FiUserX /> Inactive
+                              </button>
+                            )}
+                            <button
+                              className="btn-danger"
+                              style={{ padding: '0.4rem 0.6rem', borderRadius: '6px', fontSize: '0.85rem' }}
+                              onClick={() => handleDeactivate(member._id)}
+                              title="Permanently Delete Member"
+                            >
+                              <FiTrash2 />
+                            </button>
+                          </div>
                         ) : (
-                          <button
-                            style={{
-                              padding: '0.4rem 0.6rem', borderRadius: '6px', fontSize: '0.85rem',
-                              background: 'rgba(239,68,68,0.1)', color: 'var(--danger)', border: '1px solid var(--danger)'
-                            }}
-                            onClick={() => setDeleteRequestModal({ show: true, memberId: member._id, memberName: member.name, reason: '' })}
-                            title="Request Deletion"
-                          >
-                            <FiAlertOctagon />
-                          </button>
+                          // Staff: can raise inactive or delete request
+                          <div style={{ display: 'flex', gap: '0.4rem' }}>
+                            <button
+                              style={{ padding: '0.4rem 0.7rem', borderRadius: '6px', fontSize: '0.82rem', background: 'rgba(245,158,11,0.12)', color: 'var(--warning)', border: '1px solid var(--warning)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                              onClick={() => setDeleteRequestModal({ show: true, memberId: member._id, memberName: member.name, reason: '', type: 'inactive' })}
+                              title="Request Inactive Status"
+                            >
+                              <FiUserX />
+                            </button>
+                            <button
+                              style={{ padding: '0.4rem 0.6rem', borderRadius: '6px', fontSize: '0.85rem', background: 'rgba(239,68,68,0.1)', color: 'var(--danger)', border: '1px solid var(--danger)', cursor: 'pointer' }}
+                              onClick={() => setDeleteRequestModal({ show: true, memberId: member._id, memberName: member.name, reason: '', type: 'delete' })}
+                              title="Request Deletion"
+                            >
+                              <FiAlertOctagon />
+                            </button>
+                          </div>
                         )}
                       </div>
                     )}
@@ -343,9 +401,14 @@ const MembersPage = () => {
       {deleteRequestModal.show && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
           <div className="card" style={{ width: '100%', maxWidth: '400px' }}>
-            <h2 style={{ marginBottom: '0.5rem' }}>Request Deletion</h2>
+            <h2 style={{ marginBottom: '0.5rem' }}>
+              {deleteRequestModal.type === 'inactive' ? 'Request: Set Inactive' : 'Request Deletion'}
+            </h2>
             <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
-              Requesting deletion for <strong>{deleteRequestModal.memberName}</strong>. The gym owner will be notified to approve or reject.
+              {deleteRequestModal.type === 'inactive'
+                ? <>Requesting to mark <strong>{deleteRequestModal.memberName}</strong> as inactive. Their data will be preserved. The gym owner will be notified.</>
+                : <>Requesting deletion for <strong>{deleteRequestModal.memberName}</strong>. The gym owner will be notified to approve or reject.</>
+              }
             </p>
             <form onSubmit={handleDeleteRequest}>
               <div className="input-group">

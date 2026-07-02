@@ -8,6 +8,7 @@ import { AuthContext } from '../context/AuthContext';
 const DashboardPage = () => {
   const [stats, setStats] = useState(null);
   const [reminders, setReminders] = useState([]);
+  const [inactiveWarnings, setInactiveWarnings] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const { user } = useContext(AuthContext);
@@ -25,6 +26,7 @@ const DashboardPage = () => {
       const { data } = await api.get('/dashboard/stats');
       setStats(data.stats);
       setReminders(data.reminders);
+      setInactiveWarnings(data.inactiveWarnings || []);
     } catch (error) {
       console.error('Error fetching dashboard', error);
     } finally {
@@ -84,25 +86,59 @@ const DashboardPage = () => {
         ))}
       </div>
 
-      {/* Delete Requests Alert — Owner only */}
+      {/* Staff Requests Alert — Owner only */}
       {isOwner && stats?.pendingDeleteRequests > 0 && (
         <div
           onClick={() => navigate('/delete-requests')}
           style={{
             display: 'flex', alignItems: 'center', gap: '1rem',
             background: 'rgba(239, 68, 68, 0.1)', border: '1px solid var(--danger)',
-            borderRadius: '12px', padding: '1rem 1.5rem', marginBottom: '2rem',
+            borderRadius: '12px', padding: '1rem 1.5rem', marginBottom: '1rem',
             cursor: 'pointer', transition: 'opacity 0.2s',
           }}
         >
           <FiAlertOctagon color="var(--danger)" size={22} />
           <div>
             <div style={{ fontWeight: '600', color: 'var(--danger)' }}>
-              {stats.pendingDeleteRequests} Pending Delete Request{stats.pendingDeleteRequests > 1 ? 's' : ''}
+              {stats.pendingDeleteRequests} Pending Staff Request{stats.pendingDeleteRequests > 1 ? 's' : ''}
             </div>
             <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-              Staff have raised member deletion requests waiting for your approval.
+              Staff have raised member status change / deletion requests waiting for your approval.
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 30-Day Inactive Member Warning — Owner only */}
+      {isOwner && inactiveWarnings.length > 0 && (
+        <div style={{
+          background: 'rgba(245, 158, 11, 0.08)', border: '1px solid var(--warning)',
+          borderRadius: '12px', padding: '1rem 1.5rem', marginBottom: '2rem',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
+            <FiAlertCircle color="var(--warning)" size={20} />
+            <span style={{ fontWeight: '600', color: 'var(--warning)' }}>
+              {inactiveWarnings.length} Member{inactiveWarnings.length > 1 ? 's' : ''} Inactive for 30+ Days
+            </span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            {inactiveWarnings.map((w, i) => (
+              <div key={i} style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                background: 'rgba(0,0,0,0.2)', borderRadius: '8px', padding: '0.6rem 1rem',
+              }}>
+                <div>
+                  <span style={{ fontWeight: '500' }}>{w.member.name}</span>
+                  <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginLeft: '0.75rem' }}>{w.member.phone}</span>
+                </div>
+                <span style={{ fontSize: '0.82rem', color: 'var(--warning)', fontWeight: '600' }}>
+                  ⚠️ {w.daysInactive} days inactive
+                </span>
+              </div>
+            ))}
+          </div>
+          <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.75rem' }}>
+            Go to <span style={{ color: 'var(--accent-primary)', cursor: 'pointer', textDecoration: 'underline' }} onClick={() => navigate('/members')}>Members → Inactive</span> to review and delete if needed.
           </div>
         </div>
       )}

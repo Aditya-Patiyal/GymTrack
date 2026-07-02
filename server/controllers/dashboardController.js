@@ -87,10 +87,30 @@ export const getDashboardStats = async (req, res) => {
 
     reminders.sort((a, b) => new Date(a.endDate) - new Date(b.endDate));
 
-    // 4. Pending delete requests count (only relevant for owners)
+    // 4. Pending staff requests count (delete + inactive)
     const pendingDeleteRequests = await DeleteRequest.countDocuments({
       gymOwnerId,
       status: 'pending',
+    });
+
+    // 5. Inactive members who have been inactive for more than 30 days
+    const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const longInactiveMembers = await Member.find({
+      createdBy: gymOwnerId,
+      isActive: false,
+      inactiveSince: { $lte: thirtyDaysAgo },
+    }).select('name phone inactiveSince');
+
+    const inactiveWarnings = longInactiveMembers.map(m => {
+      const daysInactive = Math.floor((today - new Date(m.inactiveSince)) / (1000 * 60 * 60 * 24));
+      return {
+        member: { _id: m._id, name: m.name, phone: m.phone },
+        plan: 'Inactive Account',
+        endDate: m.inactiveSince,
+        daysInactive,
+        status: { level: 'inactive-30', text: `Inactive for ${daysInactive} days — consider deleting` },
+        isInactiveWarning: true,
+      };
     });
 
     res.json({
@@ -103,6 +123,7 @@ export const getDashboardStats = async (req, res) => {
         pendingDeleteRequests,
       },
       reminders,
+      inactiveWarnings,
     });
   } catch (error) {
     res.status(500).json({ message: error.message });

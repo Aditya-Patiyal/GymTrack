@@ -1,25 +1,28 @@
 import DeleteRequest from '../models/DeleteRequest.js';
 import Member from '../models/Member.js';
 
-// POST /api/delete-requests — Staff raises a delete request
+// POST /api/delete-requests — Staff raises a delete OR inactive request
 export const createDeleteRequest = async (req, res) => {
-  const { memberId, reason } = req.body;
+  const { memberId, reason, type = 'delete' } = req.body;
 
   if (!memberId) {
     return res.status(400).json({ message: 'Member ID is required' });
   }
 
+  if (!['delete', 'inactive'].includes(type)) {
+    return res.status(400).json({ message: 'Invalid request type' });
+  }
+
   try {
-    // Make sure the member belongs to this gym
     const member = await Member.findOne({ _id: memberId, createdBy: req.gymOwnerId });
     if (!member) {
       return res.status(404).json({ message: 'Member not found' });
     }
 
-    // Check if a pending request for this member already exists
-    const existing = await DeleteRequest.findOne({ member: memberId, status: 'pending' });
+    // Check if a pending request of the same type already exists
+    const existing = await DeleteRequest.findOne({ member: memberId, type, status: 'pending' });
     if (existing) {
-      return res.status(400).json({ message: 'A pending delete request for this member already exists' });
+      return res.status(400).json({ message: `A pending ${type} request for this member already exists` });
     }
 
     const request = await DeleteRequest.create({
@@ -27,6 +30,7 @@ export const createDeleteRequest = async (req, res) => {
       requestedBy: req.user._id,
       gymOwnerId: req.gymOwnerId,
       reason: reason || '',
+      type,
     });
 
     await request.populate([
@@ -65,23 +69,35 @@ export const getPendingDeleteCount = async (req, res) => {
   }
 };
 
-// PUT /api/delete-requests/:id/approve — Owner approves: actually deletes the member
+// PUT /api/delete-requests/:id/approve — Owner approves
 export const approveDeleteRequest = async (req, res) => {
   try {
     const request = await DeleteRequest.findOne({ _id: req.params.id, gymOwnerId: req.user._id, status: 'pending' });
     if (!request) {
-      return res.status(404).json({ message: 'Delete request not found or already resolved' });
+      return res.status(404).json({ message: 'Request not found or already resolved' });
     }
 
-    // Soft-delete the member (mark inactive) or hard delete
-    await Member.findByIdAndUpdate(request.member, { isActive: false });
+    if (request.type === 'inactive') {
+      // Set member inactive but keep all data intact
+      await Member.findByIdAndUpdate(request.member, {
+        isActive: false,
+        inactiveSince: new Date(),
+      });
+    } else {
+      // 'delete' type — soft-delete the member
+      await Member.findByIdAndUpdate(request.member, {
+        isActive: false,
+        inactiveSince: new Date(),
+      });
+    }
 
     request.status = 'approved';
     request.resolvedBy = req.user._id;
     request.resolvedAt = new Date();
     await request.save();
 
-    res.json({ message: 'Delete request approved. Member deactivated.' });
+    const label = request.type === 'inactive' ? 'set to inactive' : 'deactivated';
+    res.json({ message: `Request approved. Member ${label}.` });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -92,7 +108,7 @@ export const rejectDeleteRequest = async (req, res) => {
   try {
     const request = await DeleteRequest.findOne({ _id: req.params.id, gymOwnerId: req.user._id, status: 'pending' });
     if (!request) {
-      return res.status(404).json({ message: 'Delete request not found or already resolved' });
+      return res.status(404).json({ message: 'Request not found or already resolved' });
     }
 
     request.status = 'rejected';
@@ -100,7 +116,7 @@ export const rejectDeleteRequest = async (req, res) => {
     request.resolvedAt = new Date();
     await request.save();
 
-    res.json({ message: 'Delete request rejected.' });
+    res.json({ message: 'Request rejected.' });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

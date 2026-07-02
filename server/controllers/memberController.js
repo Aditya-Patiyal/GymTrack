@@ -6,7 +6,7 @@ export const getMembers = async (req, res) => {
   try {
     const { search, status } = req.query;
 
-    // Deleted members (isActive: false) are never shown in any list view
+    // isActive:true is the default — deleted/inactive members are excluded from active list
     let query = { createdBy: req.gymOwnerId, isActive: true };
 
     if (search) {
@@ -16,8 +16,10 @@ export const getMembers = async (req, res) => {
       ];
     }
 
-    // Note: 'inactive' status is a membership plan state, not the isActive field.
-    // Deleted members (isActive:false) are never returned.
+    // 'inactive-member' tab: show members explicitly set inactive by owner
+    if (status === 'inactive-member') {
+      query.isActive = false;
+    }
 
     const members = await Member.find(query)
       .populate('addedBy', 'name role')
@@ -135,7 +137,35 @@ export const updateMember = async (req, res) => {
   }
 };
 
-// Owner-only: hard deactivate a member directly
+// Owner-only: set member to inactive (preserves all data, just flags inactive)
+export const setInactive = async (req, res) => {
+  try {
+    const member = await Member.findOne({ _id: req.params.id, createdBy: req.gymOwnerId });
+    if (!member) return res.status(404).json({ message: 'Member not found' });
+    member.isActive = false;
+    member.inactiveSince = new Date();
+    await member.save();
+    res.json({ message: 'Member set to inactive', member });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Owner-only: reactivate an inactive member
+export const reactivateMember = async (req, res) => {
+  try {
+    const member = await Member.findOne({ _id: req.params.id, createdBy: req.gymOwnerId });
+    if (!member) return res.status(404).json({ message: 'Member not found' });
+    member.isActive = true;
+    member.inactiveSince = null;
+    await member.save();
+    res.json({ message: 'Member reactivated', member });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Owner-only: hard deactivate a member directly (legacy, kept for compatibility)
 export const deactivateMember = async (req, res) => {
   try {
     const member = await Member.findOne({ _id: req.params.id, createdBy: req.gymOwnerId });
@@ -143,6 +173,7 @@ export const deactivateMember = async (req, res) => {
       return res.status(404).json({ message: 'Member not found' });
     }
     member.isActive = false;
+    member.inactiveSince = member.inactiveSince || new Date();
     await member.save();
     res.json({ message: 'Member deactivated' });
   } catch (error) {

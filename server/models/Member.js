@@ -27,6 +27,10 @@ const memberSchema = new mongoose.Schema({
     type: Boolean,
     default: true,
   },
+  inactiveSince: {
+    type: Date,
+    default: null,
+  },
   notes: {
     type: String,
   },

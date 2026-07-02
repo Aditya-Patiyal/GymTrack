@@ -20,6 +20,11 @@ const deleteRequestSchema = new mongoose.Schema({
     type: String,
     default: '',
   },
+  type: {
+    type: String,
+    enum: ['delete', 'inactive'],
+    default: 'delete',
+  },
   status: {
     type: String,
     enum: ['pending', 'approved', 'rejected'],

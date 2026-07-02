@@ -93,6 +93,7 @@ const DeleteRequestsPage = () => {
             <thead>
               <tr>
                 <th>Member</th>
+                <th>Type</th>
                 <th>Requested By</th>
                 <th>Reason</th>
                 <th>Requested At</th>
@@ -107,6 +108,15 @@ const DeleteRequestsPage = () => {
                   <td>
                     <div style={{ fontWeight: '500' }}>{req.member?.name || '—'}</div>
                     <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{req.member?.phone}</div>
+                  </td>
+                  <td>
+                    <span style={{
+                      padding: '0.2rem 0.6rem', borderRadius: '999px', fontSize: '0.78rem', fontWeight: 600,
+                      background: req.type === 'inactive' ? 'rgba(245,158,11,0.12)' : 'rgba(239,68,68,0.12)',
+                      color: req.type === 'inactive' ? 'var(--warning)' : 'var(--danger)',
+                    }}>
+                      {req.type === 'inactive' ? '⚫ Set Inactive' : '🗑️ Delete'}
+                    </span>
                   </td>
                   <td>
                     <div style={{ fontWeight: '500' }}>{req.requestedBy?.name || '—'}</div>
