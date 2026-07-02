@@ -7,8 +7,8 @@ export const getDashboardStats = async (req, res) => {
   try {
     const gymOwnerId = req.gymOwnerId;
 
-    // 1. Total Members & Active Members
-    const members = await Member.find({ createdBy: gymOwnerId });
+    // 1. Active Members only (deleted members have isActive: false)
+    const members = await Member.find({ createdBy: gymOwnerId, isActive: true });
     const totalMembers = members.length;
 
     let activeCount = 0;

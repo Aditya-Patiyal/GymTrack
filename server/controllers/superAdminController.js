@@ -130,7 +130,7 @@ export const getOwners = async (req, res) => {
     
     // Attach member count for each gym
     const ownersWithStats = await Promise.all(owners.map(async (owner) => {
-      const memberCount = await Member.countDocuments({ createdBy: owner._id });
+      const memberCount = await Member.countDocuments({ createdBy: owner._id, isActive: true });
       const staffCount = await User.countDocuments({ ownerId: owner._id, role: 'staff' });
       return { ...owner._doc, memberCount, staffCount };
     }));

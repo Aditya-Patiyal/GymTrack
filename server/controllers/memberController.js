@@ -6,7 +6,8 @@ export const getMembers = async (req, res) => {
   try {
     const { search, status } = req.query;
 
-    let query = { createdBy: req.gymOwnerId };
+    // Deleted members (isActive: false) are never shown in any list view
+    let query = { createdBy: req.gymOwnerId, isActive: true };
 
     if (search) {
       query.$or = [
@@ -15,11 +16,8 @@ export const getMembers = async (req, res) => {
       ];
     }
 
-    if (status === 'inactive') {
-      query.isActive = false;
-    } else if (status === 'active' || status === 'expiring' || status === 'expired') {
-      query.isActive = true;
-    }
+    // Note: 'inactive' status is a membership plan state, not the isActive field.
+    // Deleted members (isActive:false) are never returned.
 
     const members = await Member.find(query)
       .populate('addedBy', 'name role')
