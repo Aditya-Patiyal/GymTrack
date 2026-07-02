@@ -25,11 +25,16 @@ const memberSchema = new mongoose.Schema({
   },
   isActive: {
     type: Boolean,
-    default: true,
+    default: true,       // false = DELETED (hidden from all views)
   },
   inactiveSince: {
     type: Date,
     default: null,
+  },
+  memberStatus: {
+    type: String,
+    enum: ['active', 'inactive'],
+    default: 'active',   // 'inactive' = ON HOLD (still visible, just paused)
   },
   notes: {
     type: String,

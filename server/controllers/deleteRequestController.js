@@ -78,16 +78,15 @@ export const approveDeleteRequest = async (req, res) => {
     }
 
     if (request.type === 'inactive') {
-      // Set member inactive but keep all data intact
+      // ON HOLD — member stays visible, all data intact, just paused
       await Member.findByIdAndUpdate(request.member, {
-        isActive: false,
+        memberStatus: 'inactive',
         inactiveSince: new Date(),
       });
     } else {
-      // 'delete' type — soft-delete the member
+      // DELETED — member is hidden from all views
       await Member.findByIdAndUpdate(request.member, {
         isActive: false,
-        inactiveSince: new Date(),
       });
     }
 

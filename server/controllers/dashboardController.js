@@ -6,20 +6,20 @@ import DeleteRequest from '../models/DeleteRequest.js';
 export const getDashboardStats = async (req, res) => {
   try {
     const gymOwnerId = req.gymOwnerId;
+    const today = new Date();
 
-    // 1. Active Members only (deleted members have isActive: false)
+    // Fetch all non-deleted members (isActive:true = both 'active' and 'inactive'/on-hold)
     const members = await Member.find({ createdBy: gymOwnerId, isActive: true });
     const totalMembers = members.length;
 
     let activeCount = 0;
     let expiringCount = 0;
     let expiredCount = 0;
-
     const reminders = [];
-    const today = new Date();
 
     for (let member of members) {
-      if (!member.isActive) continue;
+      // Skip on-hold members from plan-status counting — their membership is paused
+      if (member.memberStatus === 'inactive') continue;
 
       const latestMembership = await Membership.findOne({ member: member._id }).sort({ endDate: -1 });
 
@@ -50,7 +50,7 @@ export const getDashboardStats = async (req, res) => {
       }
     }
 
-    // 2. Revenue This Month (only meaningful for owners)
+    // 2. Revenue This Month
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
     const memberIds = members.map(m => m._id);
@@ -62,7 +62,7 @@ export const getDashboardStats = async (req, res) => {
     });
     const revenue = payments.reduce((acc, curr) => acc + curr.amount, 0);
 
-    // 3. Pending Payments Reminders
+    // 3. Pending Payment Reminders (only for active/non-hold members)
     const pendingPayments = await Payment.find({
       member: { $in: memberIds },
       status: 'pending',
@@ -70,7 +70,7 @@ export const getDashboardStats = async (req, res) => {
 
     for (let payment of pendingPayments) {
       const memberDetails = members.find(m => m._id.toString() === payment.member.toString());
-      if (memberDetails && memberDetails.isActive) {
+      if (memberDetails && memberDetails.isActive && memberDetails.memberStatus === 'active') {
         const startedText = payment.membership && payment.membership.startDate
           ? `(Started: ${new Date(payment.membership.startDate).toLocaleDateString()})`
           : '';
@@ -93,11 +93,12 @@ export const getDashboardStats = async (req, res) => {
       status: 'pending',
     });
 
-    // 5. Inactive members who have been inactive for more than 30 days
+    // 5. Members ON HOLD for more than 30 days — warn owner to review
     const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
     const longInactiveMembers = await Member.find({
       createdBy: gymOwnerId,
-      isActive: false,
+      isActive: true,                              // NOT deleted
+      memberStatus: 'inactive',                    // ON HOLD
       inactiveSince: { $lte: thirtyDaysAgo },
     }).select('name phone inactiveSince');
 
@@ -105,10 +106,8 @@ export const getDashboardStats = async (req, res) => {
       const daysInactive = Math.floor((today - new Date(m.inactiveSince)) / (1000 * 60 * 60 * 24));
       return {
         member: { _id: m._id, name: m.name, phone: m.phone },
-        plan: 'Inactive Account',
-        endDate: m.inactiveSince,
         daysInactive,
-        status: { level: 'inactive-30', text: `Inactive for ${daysInactive} days — consider deleting` },
+        status: { level: 'inactive-30', text: `On hold for ${daysInactive} days — review needed` },
         isInactiveWarning: true,
       };
     });
